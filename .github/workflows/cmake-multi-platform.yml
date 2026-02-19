@@ -2,8 +2,10 @@ name: Build and Release Kal Firmware
 
 on:
   push:
+    branches: [ main, master ] # Запускать при пуше в эти ветки
     tags:
-      - 'v*'
+      - 'v*'                   # И при создании тегов
+  workflow_dispatch:           # Добавит кнопку "Run workflow" вручную
 
 jobs:
   build:
