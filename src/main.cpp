@@ -16,6 +16,101 @@
 #include <IRutils.h>
 #include <Arduino.h>
 
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+
+void renderMenu(const char* title, const char* items[], const uint8_t* icons[], int count, int sel) {
+  display.clearDisplay();
+
+  // Заголовок
+  display.fillRect(0, 0, 128, 12, WHITE);
+  display.setTextColor(BLACK);
+  display.setTextSize(1);
+  display.setCursor(4, 2);
+  display.print(title);
+  display.setTextColor(WHITE);
+
+  // Скроллинг — показываем максимум 4 пункта
+  int maxVisible = 3;
+  int startIdx = 0;
+  if (sel >= maxVisible) startIdx = sel - maxVisible + 1;
+
+  for (int i = 0; i < maxVisible; i++) {
+    int idx = startIdx + i;
+    if (idx >= count) break;
+
+    int yPos = 13 + (i * 13.2);
+    bool isSelected = (idx == sel);
+
+    if (isSelected) {
+      display.fillRect(0, yPos, 128, 13.2, WHITE);
+      display.setTextColor(BLACK);
+    } else {
+      display.setTextColor(WHITE);
+    }
+
+    // Иконка
+    if (icons != nullptr && icons[idx] != nullptr) {
+      display.drawBitmap(2, yPos + 2, icons[idx], 8, 8, isSelected ? BLACK : WHITE);
+    }
+
+    // Текст пункта
+    display.setCursor(14, yPos + 2);
+    display.print(items[idx]);
+
+    // Стрелка у выбранного
+    if (isSelected) {
+      display.setCursor(118, yPos + 2);
+      display.print(">");
+    }
+  }
+
+  display.drawLine(0, 54, 128, 54, WHITE);
+  display.setTextColor(WHITE);
+  display.setCursor(0, 56);
+  display.print("[N]Next");
+  display.setCursor(80, 56);
+  display.print("[OK]Select");
+}
+
+void drawHeader(String t) {
+  display.fillRect(0,0,128,12,WHITE); display.setTextColor(BLACK);
+  display.setCursor(2,2); display.print(t); display.setTextColor(WHITE);
+}
+
+void drawActiveScreen(const char* title, const char* status, const char* info1, const char* info2, const char* btnHint) {
+  display.clearDisplay();
+  
+  // Заголовок
+  display.fillRect(0, 0, 128, 12, WHITE);
+  display.setTextColor(BLACK);
+  display.setCursor(4, 2);
+  display.print(title);
+  
+  // Контент
+  display.setTextColor(WHITE);
+  display.setCursor(4, 18);
+  display.print(status);
+  
+  if (info1 != nullptr) {
+    display.setCursor(4, 32);
+    display.print(info1);
+  }
+  
+  if (info2 != nullptr) {
+    display.setCursor(4, 42);
+    display.print(info2);
+  }
+  
+  // Статусбар
+  display.drawLine(0, 54, 128, 54, WHITE);
+  display.setCursor(4, 56);
+  display.print(btnHint);
+}
+
 // ===== ИКОНКИ 8x8 =====
 const uint8_t ico_wifi[] PROGMEM = {
   0b00111100,
@@ -226,9 +321,6 @@ const uint8_t ico_terminal[] PROGMEM = {
   0b11111111
 };
 
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 WebServer server(80);
 
 String serialBuffer = "";
@@ -517,10 +609,7 @@ void drawChannelGraph() {
   }
 }
 
-void drawHeader(String t) {
-  display.fillRect(0,0,128,12,WHITE); display.setTextColor(BLACK);
-  display.setCursor(2,2); display.print(t); display.setTextColor(WHITE);
-}
+
 
 void handleFileCreate() {
   String path = server.arg("path");
@@ -2317,85 +2406,3 @@ void loop() {
 }
 
 
-void renderMenu(const char* title, const char* items[], const uint8_t* icons[], int count, int sel) {
-  display.clearDisplay();
-
-  // Заголовок
-  display.fillRect(0, 0, 128, 12, WHITE);
-  display.setTextColor(BLACK);
-  display.setTextSize(1);
-  display.setCursor(4, 2);
-  display.print(title);
-  display.setTextColor(WHITE);
-
-  // Скроллинг — показываем максимум 4 пункта
-  int maxVisible = 3;
-  int startIdx = 0;
-  if (sel >= maxVisible) startIdx = sel - maxVisible + 1;
-
-  for (int i = 0; i < maxVisible; i++) {
-    int idx = startIdx + i;
-    if (idx >= count) break;
-
-    int yPos = 13 + (i * 13.2);
-    bool isSelected = (idx == sel);
-
-    if (isSelected) {
-      display.fillRect(0, yPos, 128, 13.2, WHITE);
-      display.setTextColor(BLACK);
-    } else {
-      display.setTextColor(WHITE);
-    }
-
-    // Иконка
-    if (icons != nullptr && icons[idx] != nullptr) {
-      display.drawBitmap(2, yPos + 2, icons[idx], 8, 8, isSelected ? BLACK : WHITE);
-    }
-
-    // Текст пункта
-    display.setCursor(14, yPos + 2);
-    display.print(items[idx]);
-
-    // Стрелка у выбранного
-    if (isSelected) {
-      display.setCursor(118, yPos + 2);
-      display.print(">");
-    }
-  }
-
-  display.drawLine(0, 54, 128, 54, WHITE);
-  display.setTextColor(WHITE);
-  display.setCursor(0, 56);
-  display.print("[N]Next");
-  display.setCursor(80, 56);
-  display.print("[OK]Select");
-}
-void drawActiveScreen(const char* title, const char* status, const char* info1, const char* info2, const char* btnHint) {
-  display.clearDisplay();
-  
-  // Заголовок
-  display.fillRect(0, 0, 128, 12, WHITE);
-  display.setTextColor(BLACK);
-  display.setCursor(4, 2);
-  display.print(title);
-  
-  // Контент
-  display.setTextColor(WHITE);
-  display.setCursor(4, 18);
-  display.print(status);
-  
-  if (info1 != nullptr) {
-    display.setCursor(4, 32);
-    display.print(info1);
-  }
-  
-  if (info2 != nullptr) {
-    display.setCursor(4, 42);
-    display.print(info2);
-  }
-  
-  // Статусбар
-  display.drawLine(0, 54, 128, 54, WHITE);
-  display.setCursor(4, 56);
-  display.print(btnHint);
-}
