@@ -1,0 +1,51 @@
+name: Build and Release Kal Firmware
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build All Environments
+        run: |
+          pio run --target clean
+          pio run
+
+      - name: Prepare Assets
+        run: |
+          mkdir -p release_files
+          find .pio/build -name "firmware.bin" | while read -r file; do
+            env_name=$(basename $(dirname "$file"))
+            cp "$file" "release_files/kal_${env_name}.bin"
+          done
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # Если пушим тег - используем его, если просто пуш в main - ставим имя 'latest'
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'latest' }}
+          files: release_files/*.bin
+          generate_release_notes: true
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
