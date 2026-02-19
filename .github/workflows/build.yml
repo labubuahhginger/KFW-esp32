@@ -36,7 +36,7 @@ jobs:
           mkdir -p release_files
           find .pio/build -name "firmware.bin" | while read -r file; do
             env_name=$(basename $(dirname "$file"))
-            cp "$file" "release_files/kal_${env_name}.bin"
+            cp "$file" "release_files/firmware_${env_name}.bin"
           done
 
       - name: Create Release

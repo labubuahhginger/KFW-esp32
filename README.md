@@ -1,10 +1,10 @@
-# KFW ESP32 - Multi-Tool Pentesting Device
+# KFW ESP32 - Multi-Tool Pentesting Firmware
 
 ![KFW Banner](https://img.shields.io/badge/ESP32-Pentesting-orange?style=for-the-badge)
 ![Version](https://img.shields.io/badge/Version-1.0%20Stable-brightgreen?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
 
-**KFW** (KalFirmware for Wireless) is a comprehensive ESP32-based multi-tool firmware for wireless security testing, RFID experimentation, and infrared control.
+**KFW** (KalFirmWare) is a comprehensive ESP32-based multi-tool firmware for wireless security testing, RFID experimentation, and infrared control.
 
 ## 🚀 Quick Start
 
