@@ -3,7 +3,7 @@ name: Build and Release Kal Firmware
 on:
   push:
     tags:
-      - 'v*' # Сработает, когда ты создашь тег (например, v1.0.1)
+      - 'v*'
 
 jobs:
   build:
@@ -12,6 +12,20 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-platformio
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -23,20 +37,23 @@ jobs:
           python -m pip install --upgrade pip
           pip install platformio
 
-      - name: Build all environments
+      - name: Build All Environments
+        # Мы явно вызываем pio run, он сам найдет platformio.ini и проигнорирует CMake
         run: pio run
 
       - name: Prepare binaries for release
         run: |
           mkdir release_files
-          # Собираем бинарники из папок билда и переименовываем их красиво
-          cp .pio/build/esp32dev/firmware.bin release_files/kal_esp32_generic.bin
-          cp .pio/build/esp32-s3/firmware.bin release_files/kal_esp32_s3.bin
-          cp .pio/build/esp32-c3/firmware.bin release_files/kal_esp32_c3.bin
+          [ -f .pio/build/esp32dev/firmware.bin ] && cp .pio/build/esp32dev/firmware.bin release_files/kal_esp32_generic.bin
+          [ -f .pio/build/esp32-s3/firmware.bin ] && cp .pio/build/esp32-s3/firmware.bin release_files/kal_esp32_s3.bin
+          [ -f .pio/build/esp32-c3/firmware.bin ] && cp .pio/build/esp32-c3/firmware.bin release_files/kal_esp32_c3.bin
+          [ -f .pio/build/esp32-s2/firmware.bin ] && cp .pio/build/esp32-s2/firmware.bin release_files/kal_esp32_s2.bin
+          [ -f .pio/build/esp32-wrover/firmware.bin ] && cp .pio/build/esp32-wrover/firmware.bin release_files/kal_esp32_wrover.bin
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: release_files/*.bin
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
