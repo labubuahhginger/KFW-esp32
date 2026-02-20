@@ -31,8 +31,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cache/pip
-            ~/.platformio/.cache
+            ~/.platformio
           key: ${{ runner.os }}-pio-${{ hashFiles('**/platformio.ini') }}
           restore-keys: |
             ${{ runner.os }}-pio-
@@ -41,7 +40,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
       
       - name: Install PlatformIO Core
         run: |
