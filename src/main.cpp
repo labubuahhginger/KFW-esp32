@@ -1260,7 +1260,7 @@ void setup() {
   WiFi.mode(WIFI_OFF);
   display.clearDisplay();      
   display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
+  display.setTextColor(DisplayWrapper::WHITE);
   SPI.begin(SCK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);
   rfid.PCD_Init();
 
@@ -1596,8 +1596,11 @@ void loop() {
               applyBlePower();
             } else if (menuIndex == 2) {
               brightIdx = (brightIdx + 1) % 5;
-              display.ssd1306_command(SSD1306_SETCONTRAST);
-              display.ssd1306_command(brightValues[brightIdx]);
+              #ifdef PLATFORM_M5STICKC_PLUS2
+                // optional: use brightness if needed
+              #else
+               display.ssd1306_command(SSD1306_SETCONTRAST);
+              #endif
             } else if (menuIndex == 3) {
               currentState = MAIN_MENU;
               menuIndex = 5;
