@@ -1260,7 +1260,7 @@ void setup() {
   WiFi.mode(WIFI_OFF);
   display.clearDisplay();      
   display.setTextSize(1);
-  display.setTextColor(DisplayWrapper::WHITE);
+  display.setTextColor(DisplayWrapper::COLOR_WHITE);
   SPI.begin(SCK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);
   rfid.PCD_Init();
 
