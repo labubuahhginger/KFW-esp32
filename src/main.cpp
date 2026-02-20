@@ -1271,7 +1271,7 @@ void setup() {
     Serial.println("WARNING: RFID Reader not found! Check wiring.");
   }
   
-  display.drawRect(0, 0, 128, 64, SSD1306_WHITE);
+  display.drawRect(0, 0, 128, 64, DisplayWrapper::COLOR_WHITE);
   display.setCursor(20, 20); 
   display.print("KFW V1 Release"); 
   display.setCursor(18, 40);
