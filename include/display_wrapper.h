@@ -8,8 +8,8 @@
   
   class DisplayWrapper {
   public:
-    static const uint16_t COLOR_WHITE = SSD1306_WHITE;
-    static const uint16_t COLOR_BLACK = SSD1306_BLACK;
+    static const uint16_t COLOR_WHITE = 0xFFFF;
+    static const uint16_t COLOR_BLACK = 0x0000;
     void begin() {
       M5.begin();
       M5.Lcd.setRotation(DISPLAY_ROTATION);
@@ -29,6 +29,9 @@
     void print(String str) { M5.Lcd.print(str); }
     void print(int val) { M5.Lcd.print(val); }
     void println(const char* str) { M5.Lcd.println(str); }
+    void println(String str) { M5.Lcd.println(str); }
+    void print(uint8_t val, int base) { M5.Lcd.print(val, base); }
+    void print(int val, int base) { M5.Lcd.print(val, base); }
     
     void printf(const char* fmt, ...) {
       va_list args;
