@@ -3,7 +3,6 @@
 #include <MFRC522.h>
 #include <TJpg_Decoder.h>
 #include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
 #include <WiFi.h>
 #include <esp_wifi.h>
 #include <LittleFS.h>
