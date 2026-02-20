@@ -15,12 +15,16 @@
 #include <IRsend.h>
 #include <IRutils.h>
 #include <Arduino.h>
+#include "config.h"
+#include "display_wrapper.h"
+#include "button_wrapper.h"
 
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+DisplayWrapper display;
+ButtonWrapper buttons;
 
 void renderMenu(const char* title, const char* items[], const uint8_t* icons[], int count, int sel) {
   display.clearDisplay();
