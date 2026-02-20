@@ -1425,11 +1425,7 @@ void loop() {
   bool ok = false;
 
   // 3. Логика антидребезга и превращения зажатия в одиночный клик
-  if ((n_phys || ok_phys) && (millis() - lastPress > debounceDelay)) {
-    lastPress = millis();
-    if (n_phys) n = true;
-    if (ok_phys) ok = true;
-  }
+  
 
   // --- ЛОГИКА НАЖАТИЙ (Input Handling) ---
   if (n || ok) {
