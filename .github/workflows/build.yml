@@ -181,6 +181,7 @@ jobs:
             release/*.bin
           draft: false
           prerelease: false
+          overwrite_files: true
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
