@@ -4,7 +4,7 @@
 #include "config.h"
 
 #ifdef PLATFORM_M5STICKC_PLUS2
-  #include <M5StickCPlus2.h>
+  #include <M5Unified.h>
   
   class ButtonWrapper {
   private:
