@@ -75,11 +75,12 @@
   
   class DisplayWrapper : public Adafruit_SSD1306 {
   public:
-    DisplayWrapper() : Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1) {}
+    DisplayWrapper() 
+      : Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1) {}
     
     void begin() {
       Adafruit_SSD1306::begin(SSD1306_SWITCHCAPVCC, 0x3C);
-      setTextColor(WHITE);
+      setTextColor(SSD1306_WHITE);   // use explicit macro
       setTextSize(1);
       clearDisplay();
     }
@@ -92,9 +93,6 @@
       va_end(args);
       print(buffer);
     }
-    
-    using Adafruit_SSD1306::BLACK;
-    using Adafruit_SSD1306::WHITE;
   };
 #endif
 
