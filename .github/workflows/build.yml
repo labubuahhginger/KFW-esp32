@@ -22,6 +22,7 @@ jobs:
           - esp32-s3
           - esp32-c3
           - esp32-wrover
+          - m5stickc-plus2
     
     steps:
       - name: Checkout Repository
