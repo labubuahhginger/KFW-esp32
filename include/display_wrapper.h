@@ -8,6 +8,8 @@
   
   class DisplayWrapper {
   public:
+    static const uint16_t COLOR_WHITE = SSD1306_WHITE;
+    static const uint16_t COLOR_BLACK = SSD1306_BLACK;
     void begin() {
       M5.begin();
       M5.Lcd.setRotation(DISPLAY_ROTATION);
