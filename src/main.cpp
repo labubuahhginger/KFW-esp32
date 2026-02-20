@@ -329,8 +329,8 @@ WebServer server(80);
 
 String serialBuffer = "";
 
-#define SS_PIN    5
-#define RST_PIN   27
+#define SS_PIN    RFID_SS_PIN
+#define RST_PIN   RFID_RST_PIN
 #define SCK_PIN   18
 #define MISO_PIN  19
 #define MOSI_PIN  23
@@ -1246,8 +1246,8 @@ void setup() {
     LittleFS.mkdir("/cal_hs");
   }
   Serial.begin(115200);
-  pinMode(BTN_NEXT, INPUT_PULLUP); pinMode(BTN_OK, INPUT_PULLUP);
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  display.begin();
+  buttons.begin();
   LittleFS.begin(true);
   server.on("/", HTTP_GET, handleRoot);
   server.on("/download", HTTP_GET, handleFileDownload);
@@ -1415,8 +1415,10 @@ void loop() {
       serialBuffer = serialBuffer.substring(1500);
   }
   // 1. Читаем физическое состояние кнопок
-  bool n_phys = (digitalRead(BTN_NEXT) == LOW);
-  bool ok_phys = (digitalRead(BTN_OK) == LOW);
+  bool n = buttons.nextPressed();
+  bool ok = buttons.okPressed();
+
+  buttons.update();
   
   // 2. Объявляем переменные импульсов (ОДИН РАЗ)
   bool n = false;
