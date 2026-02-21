@@ -66,3 +66,33 @@ jobs:
           name: firmware
           path: dist/*.bin
           retention-days: 90
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: firmware
+          path: release
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: KFW Firmware ${{ github.ref_name }}
+          body: |
+            # KFW ESP32 Firmware
+            
+            ## Supported Devices
+            - ESP32 Dev Module
+            
+            ## Installation
+            ```bash
+            esptool.py --chip esp32 --port /dev/ttyUSB0 write_flash 0x0 firmware-kfw-esp32dev-${{ github.ref_name }}.bin
+            ```
+          files: release/*.bin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
