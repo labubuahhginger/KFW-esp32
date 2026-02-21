@@ -14,11 +14,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        environment:
-          - esp32dev
     
     steps:
       - name: Checkout Repository
@@ -43,197 +38,31 @@ jobs:
           python -m pip install --upgrade pip
           pip install --upgrade platformio
       
-      - name: Build Firmware for ${{ matrix.environment }}
+      - name: Build Firmware
+        run: pio run -e esp32dev
+        
+      - name: Get Version
+        id: version
         run: |
-          echo "Building for ${{ matrix.environment }}..."
-          pio run -e ${{ matrix.environment }}
-          
-          # Get version from tag or commit
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF#refs/tags/}"
           else
             VERSION="dev-$(git rev-parse --short HEAD)"
           fi
-          
-          echo "Version: $VERSION"
-          
-          # Rename firmware with descriptive name
-          if [ -f .pio/build/${{ matrix.environment }}/firmware.bin ]; then
-            mkdir -p dist
-            cp .pio/build/${{ matrix.environment }}/firmware.bin \
-               dist/firmware-kfw-${{ matrix.environment }}-${VERSION}.bin
-            
-            # Create a "latest" version without version tag for web flasher
-            cp .pio/build/${{ matrix.environment }}/firmware.bin \
-               dist/firmware-kfw-${{ matrix.environment }}-latest.bin
-            
-            echo "✅ Firmware built successfully"
-            ls -lh dist/
-          else
-            echo "❌ Firmware build failed"
-            exit 1
-          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        shell: bash
+      
+      - name: Create Dist Directory
+        run: mkdir -p dist
+      
+      - name: Rename Firmware
+        run: |
+          cp .pio/build/esp32dev/firmware.bin dist/firmware-kfw-esp32dev-${{ steps.version.outputs.VERSION }}.bin
+          cp .pio/build/esp32dev/firmware.bin dist/firmware-kfw-esp32dev-latest.bin
       
       - name: Upload Firmware Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: firmware-${{ matrix.environment }}
+          name: firmware
           path: dist/*.bin
           retention-days: 90
-          if-no-files-found: error
-  
-  # Create GitHub Release only on version tags
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      contents: write
-    
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      
-      - name: Download All Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: ./artifacts
-      
-      - name: Organize Firmware Files
-        run: |
-          mkdir -p release
-          find ./artifacts -name "*.bin" -exec cp {} release/ \;
-          ls -lah release/
-      
-      - name: Generate Changelog
-        id: changelog
-        run: |
-          # Get previous tag
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          
-          if [ -z "$PREV_TAG" ]; then
-            # First release - get all commits
-            CHANGELOG=$(git log --pretty=format:"- %s" --no-merges)
-          else
-            # Get commits since previous tag
-            CHANGELOG=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s" --no-merges)
-          fi
-          
-          # Save to file
-          echo "$CHANGELOG" > changelog.txt
-          
-          # Debug output
-          echo "=== Changelog Preview ==="
-          cat changelog.txt
-      
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: KFW Firmware ${{ github.ref_name }}
-          body: |
-            # 🚀 KFW ESP32 Firmware ${{ github.ref_name }}
-            
-            ## 📱 Supported Devices
-            
-            | Device | File |
-            |--------|------|
-            | ESP32 Dev Module | `firmware-kfw-esp32dev-${{ github.ref_name }}.bin` |
-            | ESP32-S3 | `firmware-kfw-esp32-s3-${{ github.ref_name }}.bin` |
-            | ESP32-C3 | `firmware-kfw-esp32-c3-${{ github.ref_name }}.bin` |
-            | ESP32 WROVER | `firmware-kfw-esp32-wrover-${{ github.ref_name }}.bin` |
-            
-            ## ⚡ Quick Flash
-            
-            **Web Flasher (Easiest):**
-            1. Visit [KFW Web Flasher](https://labubuahhginger.github.io/kfwflasher.github.io)
-            2. Connect your ESP32 via USB
-            3. Click "Flash" and select your device type
-            
-            **Manual Flash:**
-            ```bash
-            # Using esptool.py
-            esptool.py --chip auto --port /dev/ttyUSB0 write_flash 0x0 firmware-kfw-YOUR-DEVICE.bin
-            
-            # Using PlatformIO
-            pio run -e esp32dev -t upload
-            ```
-            
-            ## 📝 What's Changed
-            
-            $(cat changelog.txt)
-            
-            ## 🔗 Links
-            
-            - 📖 [Documentation](https://github.com/${{ github.repository }}/blob/main/README.md)
-            - 🐛 [Report Issues](https://github.com/${{ github.repository }}/issues)
-            - 💬 [Discussions](https://github.com/${{ github.repository }}/discussions)
-            
-            ---
-            
-            **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.changelog.outputs.prev_tag || 'v1.0.0' }}...${{ github.ref_name }}
-          files: |
-            release/*.bin
-          draft: false
-          prerelease: false
-          overwrite_files: true
-          generate_release_notes: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  
-  # Update web flasher manifest (optional)
-  update-manifest:
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-      
-      - name: Generate Manifest JSON
-        run: |
-          cat > manifest.json << EOF
-          {
-            "name": "KFW ESP32 Firmware",
-            "version": "${{ github.ref_name }}",
-            "builds": [
-              {
-                "chipFamily": "ESP32",
-                "parts": [
-                  {
-                    "path": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/firmware-kfw-esp32dev-${{ github.ref_name }}.bin",
-                    "offset": 0
-                  }
-                ]
-              },
-              {
-                "chipFamily": "ESP32-S3",
-                "parts": [
-                  {
-                    "path": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/firmware-kfw-esp32-s3-${{ github.ref_name }}.bin",
-                    "offset": 0
-                  }
-                ]
-              },
-              {
-                "chipFamily": "ESP32-C3",
-                "parts": [
-                  {
-                    "path": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/firmware-kfw-esp32-c3-${{ github.ref_name }}.bin",
-                    "offset": 0
-                  }
-                ]
-              }
-            ]
-          }
-          EOF
-          
-          cat manifest.json
-      
-      - name: Upload Manifest
-        uses: actions/upload-artifact@v4
-        with:
-          name: manifest
-          path: manifest.json
