@@ -1,4 +1,3 @@
-#include <Wire.h>
 #include <SPI.h>
 #include <MFRC522.h>
 #include <TJpg_Decoder.h>
@@ -17,17 +16,10 @@
 #include "display_wrapper.h"
 #include "button_wrapper.h"
 
-
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-
 DisplayWrapper display;
 ButtonWrapper buttons;
 
 void renderMenu(const char* title, const char* items[], const uint8_t* icons[], int count, int sel) {
-  display.clearDisplay();
-
-  // Заголовок
   display.fillRect(0, 0, 128, 12, WHITE);
   display.setTextColor(BLACK);
   display.setTextSize(1);
@@ -35,7 +27,6 @@ void renderMenu(const char* title, const char* items[], const uint8_t* icons[], 
   display.print(title);
   display.setTextColor(WHITE);
 
-  // Скроллинг — показываем максимум 4 пункта
   int maxVisible = 3;
   int startIdx = 0;
   if (sel >= maxVisible) startIdx = sel - maxVisible + 1;
@@ -44,26 +35,23 @@ void renderMenu(const char* title, const char* items[], const uint8_t* icons[], 
     int idx = startIdx + i;
     if (idx >= count) break;
 
-    int yPos = 13 + (i * 13.2);
+    int yPos = 13 + (i * 13);
     bool isSelected = (idx == sel);
 
     if (isSelected) {
-      display.fillRect(0, yPos, 128, 13.2, WHITE);
+      display.fillRect(0, yPos, 128, 13, WHITE);
       display.setTextColor(BLACK);
     } else {
       display.setTextColor(WHITE);
     }
 
-    // Иконка
     if (icons != nullptr && icons[idx] != nullptr) {
       display.drawBitmap(2, yPos + 2, icons[idx], 8, 8, isSelected ? BLACK : WHITE);
     }
 
-    // Текст пункта
-    display.setCursor(14, yPos + 2);
+    display.setCursor(icons != nullptr ? 14 : 4, yPos + 2);
     display.print(items[idx]);
 
-    // Стрелка у выбранного
     if (isSelected) {
       display.setCursor(118, yPos + 2);
       display.print(">");
@@ -71,7 +59,6 @@ void renderMenu(const char* title, const char* items[], const uint8_t* icons[], 
   }
 
   display.drawLine(0, 54, 128, 54, WHITE);
-  display.setTextColor(WHITE);
   display.setCursor(0, 56);
   display.print("[N]Next");
   display.setCursor(80, 56);
@@ -79,20 +66,21 @@ void renderMenu(const char* title, const char* items[], const uint8_t* icons[], 
 }
 
 void drawHeader(String t) {
-  display.fillRect(0,0,128,12,WHITE); display.setTextColor(BLACK);
-  display.setCursor(2,2); display.print(t); display.setTextColor(WHITE);
+  display.fillRect(0, 0, 128, 12, WHITE);
+  display.setTextColor(BLACK);
+  display.setCursor(2, 2);
+  display.print(t);
+  display.setTextColor(WHITE);
 }
 
 void drawActiveScreen(const char* title, const char* status, const char* info1, const char* info2, const char* btnHint) {
   display.clearDisplay();
   
-  // Заголовок
   display.fillRect(0, 0, 128, 12, WHITE);
   display.setTextColor(BLACK);
   display.setCursor(4, 2);
   display.print(title);
   
-  // Контент
   display.setTextColor(WHITE);
   display.setCursor(4, 18);
   display.print(status);
@@ -107,7 +95,6 @@ void drawActiveScreen(const char* title, const char* status, const char* info1, 
     display.print(info2);
   }
   
-  // Статусбар
   display.drawLine(0, 54, 128, 54, WHITE);
   display.setCursor(4, 56);
   display.print(btnHint);
@@ -1240,9 +1227,13 @@ void handleFileRename() {
 
 
 void setup() {
-  if(!LittleFS.exists("/cal_hs")) {
-    LittleFS.mkdir("/cal_hs");
+  if(!LittleFS.begin(true)){
+    Serial.println("LittleFS Mount Failed");
+    return; // Stop execution to prevent crashing on file access
   }
+  //if(!LittleFS.exists("/cal_hs")) {
+    //LittleFS.mkdir("/cal_hs");
+  //}
   Serial.begin(115200);
   display.begin();
   buttons.begin();
@@ -1260,15 +1251,16 @@ void setup() {
   display.clearDisplay();      
   display.setTextSize(1);
   display.setTextColor(DisplayWrapper::COLOR_WHITE);
-  SPI.begin(SCK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);
-  rfid.PCD_Init();
-
+  // SPI.begin(SCK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);
+  //rfid.PCD_Init();
+  /*
   byte v = rfid.PCD_ReadRegister(rfid.VersionReg);
   Serial.print("RFID Software Version: 0x");
   Serial.println(v, HEX);
   if (v == 0x00 || v == 0xFF) {
     Serial.println("WARNING: RFID Reader not found! Check wiring.");
   }
+  */
   
   display.drawRect(0, 0, 128, 64, DisplayWrapper::COLOR_WHITE);
   display.setCursor(20, 20); 
@@ -1403,34 +1395,22 @@ void fullFormatCard() {
 }
 
 void loop() {
+  buttons.update();
   if (currentState == WEBUI_ACTIVE) server.handleClient();
 
-  // В самом начале loop()
   while (Serial.available()) {
     char c = Serial.read();
     serialBuffer += c;
     if (serialBuffer.length() > 3000) 
       serialBuffer = serialBuffer.substring(1500);
   }
-  // 1. Читаем физическое состояние кнопок
+
   bool n = buttons.nextPressed();
   bool ok = buttons.okPressed();
-
-  buttons.update();
   
-  // 2. Объявляем переменные импульсов (ОДИН РАЗ)
-  n = false;
-  ok = false;
-
-  // 3. Логика антидребезга и превращения зажатия в одиночный клик
-  
-
-  // --- ЛОГИКА НАЖАТИЙ (Input Handling) ---
   if (n || ok) {
-
-    // 1. Обработка кнопки NEXT (Навигация)
     if (n) {
-      if (currentState == IR_MENU && menuIndex > 4) { // Лимит 4 пункта (0-3)
+      if (currentState == IR_MENU && menuIndex > 4) {
         menuIndex = 0;
       }
       if (currentState == BEACON_COUNT_SEL) {
@@ -1440,23 +1420,23 @@ void loop() {
         int fCount = countFiles();
         scrollIndex = (scrollIndex + 1) % (fCount + 1);
       }
-      else if (currentState == WIFI_SCAN_LIST) { // ДОБАВЛЕНО: Листание сетей
+      else if (currentState == WIFI_SCAN_LIST) {
         if (foundDevices > 0) scrollIndex = (scrollIndex + 1) % foundDevices;
       }
       else if (currentState == CH_GRAPH) {
-        menuIndex = (menuIndex + 1) % 13; // Листаем каналы 1-13
+        menuIndex = (menuIndex + 1) % 13; 
       }
       else if (currentState == SETTINGS_SCREEN) {
-        menuIndex = (menuIndex + 1) % 4; // 0: WiFi, 1: BLE, 2: Back
+        menuIndex = (menuIndex + 1) % 4; 
       }
       else if (currentState == WIFI_SCAN_LIST) {
         scrollIndex++;
-        if (scrollIndex > foundDevices) scrollIndex = 0; // Теперь он дойдет до BACK (foundDevices + 1 пункт)
+        if (scrollIndex > foundDevices) scrollIndex = 0; 
       }
 
       else if (currentState == WIFI_INFO_SCREEN) {
         menuIndex++;
-        if (menuIndex > 1) menuIndex = 0; // Переключает между Attack и Cancel
+        if (menuIndex > 1) menuIndex = 0; 
       }
       else {
         int s = 7; 
@@ -1595,11 +1575,7 @@ void loop() {
               applyBlePower();
             } else if (menuIndex == 2) {
               brightIdx = (brightIdx + 1) % 5;
-              #ifdef PLATFORM_M5STICKC_PLUS2
-                // optional: use brightness if needed
-              #else
-               display.ssd1306_command(SSD1306_SETCONTRAST);
-              #endif
+              display.ssd1306_command(SSD1306_SETCONTRAST);
             } else if (menuIndex == 3) {
               currentState = MAIN_MENU;
               menuIndex = 5;
