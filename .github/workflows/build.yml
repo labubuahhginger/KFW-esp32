@@ -58,7 +58,6 @@ jobs:
       - name: Rename Firmware
         run: |
           cp .pio/build/esp32dev/firmware.bin dist/firmware-kfw-esp32dev-${{ steps.version.outputs.VERSION }}.bin
-          cp .pio/build/esp32dev/firmware.bin dist/firmware-kfw-esp32dev-latest.bin
       
       - name: Upload Firmware Artifact
         uses: actions/upload-artifact@v4
@@ -84,14 +83,17 @@ jobs:
         with:
           name: KFW Firmware ${{ github.ref_name }}
           body: |
-            # KFW ESP32 Firmware
-            
-            ## Supported Devices
-            - ESP32 Dev Module
-            
+            # KFW ESP32 Firmware ${{ github.ref_name }}
+
             ## Installation
+
             ```bash
+            # Using esptool
+            esptool.py --chip esp32 --port /dev/ttyUSB0 erase_flash
             esptool.py --chip esp32 --port /dev/ttyUSB0 write_flash 0x0 firmware-kfw-esp32dev-${{ github.ref_name }}.bin
+
+            # Using PlatformIO
+            pio run -e esp32dev -t upload
             ```
           files: release/*.bin
         env:
