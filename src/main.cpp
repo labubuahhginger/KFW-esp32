@@ -316,9 +316,9 @@ String serialBuffer = "";
 
 #define SS_PIN    RFID_SS_PIN
 #define RST_PIN   RFID_RST_PIN
-#define SCK_PIN   18
-#define MISO_PIN  19
-#define MOSI_PIN  23
+#define SCK_PIN   RFID_SCK_PIN
+#define MISO_PIN  RFID_MISO_PIN
+#define MOSI_PIN  RFID_MOSI_PIN
 
 MFRC522 rfid(SS_PIN, RST_PIN);
 
@@ -343,15 +343,15 @@ int brightIdx = 4;
 const char* brightNames[] = {"1%", "10%", "50%", "75%", "100%"};
 const uint8_t brightValues[] = {1, 25, 127, 190, 255}; 
 
-const uint16_t kRecvPin = 15;
-const uint16_t kSendPin = 13;
+const uint16_t kRecvPin = IR_RECV_PIN;
+const uint16_t kSendPin = IR_SEND_PIN;
 
 String lastProbeSSID = "";
 int probesCount = 0;
 int currentCh = 1;
 
-#define BTN_NEXT 32
-#define BTN_OK   33
+#define BTN_NEXT BTN_NEXT_PIN
+#define BTN_OK   BTN_OK_PIN
 
 unsigned long lastPress = 0;
 const int debounceDelay = 220; 
@@ -1071,6 +1071,7 @@ int getSectorCount() {
   }
 }
 
+#if !defined(CHIP_ESP32C3)
 void performFullDump() {
   int dumpNum = getNextDumpNumber();
   String fileName = "/dump_" + String(dumpNum) + ".txt";
@@ -1190,6 +1191,7 @@ void performFullDump() {
   f.close();
   rfid.PCD_StopCrypto1();
 }
+#endif
 
 void handleSerial() {
   server.send(200, "text/plain", serialBuffer);
@@ -1270,23 +1272,27 @@ void setup() {
   display.clearDisplay();      
   display.setTextSize(1);
   display.setTextColor(DisplayWrapper::COLOR_WHITE);
-  // SPI.begin(SCK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);
-  //rfid.PCD_Init();
-  /*
+  
+  // Инициализация SPI для RFID
+#if !defined(CHIP_ESP32C3)
+  SPI.begin(SCK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);
+  rfid.PCD_Init();
   byte v = rfid.PCD_ReadRegister(rfid.VersionReg);
   Serial.print("RFID Software Version: 0x");
   Serial.println(v, HEX);
   if (v == 0x00 || v == 0xFF) {
     Serial.println("WARNING: RFID Reader not found! Check wiring.");
   }
-  */
-  
+#else
+  Serial.println("RFID not supported on ESP32-C3 (no SPI HSPI)");
+#endif
+
   display.drawRect(0, 0, 128, 64, DisplayWrapper::COLOR_WHITE);
-  display.setCursor(20, 20); 
-  display.print("KFW V1 Release"); 
+  display.setCursor(20, 20);
+  display.print("KFW V1 Release");
   display.setCursor(18, 40);
-  display.print("@labubuahhginger"); 
-  display.display(); 
+  display.print("@labubuahhginger");
+  display.display();
   delay(3000);
 }
 
@@ -1385,6 +1391,7 @@ bool tjpg_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap)
   return true;
 }
 
+#if !defined(CHIP_ESP32C3)
 // Функция - ТОЛЬКО логика, без display и без проверки карты
 void fullFormatCard() {
   MFRC522::MIFARE_Key key;
@@ -1412,6 +1419,7 @@ void fullFormatCard() {
   rfid.PICC_HaltA();
   rfid.PCD_StopCrypto1();
 }
+#endif
 
 void loop() {
   buttons.update();
@@ -1540,34 +1548,41 @@ void loop() {
           case MAIN_MENU:
             if(menuIndex == 0) currentState = WIFI_MENU;
             else if(menuIndex == 1) currentState = BLE_MENU;
-            else if(menuIndex == 2) { 
-              currentState = IR_MENU; 
-              menuIndex = 0; 
+            else if(menuIndex == 2) {
+              currentState = IR_MENU;
+              menuIndex = 0;
             }
+#if !defined(CHIP_ESP32C3)
             else if(menuIndex == 3) currentState = RFID_MENU;
             else if(menuIndex == 4) currentState = FILES_MENU;
             else if(menuIndex == 5) currentState = SYSTEM_INFO;
             else if(menuIndex == 6) currentState = SETTINGS_SCREEN;
-            menuIndex = 0; 
+#else
+            else if(menuIndex == 3) currentState = FILES_MENU;
+            else if(menuIndex == 4) currentState = SYSTEM_INFO;
+            else if(menuIndex == 5) currentState = SETTINGS_SCREEN;
+#endif
+            menuIndex = 0;
             break;
 
+#if !defined(CHIP_ESP32C3)
           case RFID_MENU:
-          if (menuIndex == 0) { 
-            currentState = RFID_RECV; 
-          } 
-          else if (menuIndex == 1) { 
-            currentState = RFID_DUMP_PROCESS; 
+          if (menuIndex == 0) {
+            currentState = RFID_RECV;
           }
-          else if (menuIndex == 3) { 
-            currentState = RFID_EMULATION; 
+          else if (menuIndex == 1) {
+            currentState = RFID_DUMP_PROCESS;
+          }
+          else if (menuIndex == 3) {
+            currentState = RFID_EMULATION;
           }
           else if (menuIndex == 2) {
             currentState = FORMAT_CARD;
             menuIndex = 0;
           }
-          else { 
-            currentState = MAIN_MENU; 
-            menuIndex = 3; 
+          else {
+            currentState = MAIN_MENU;
+            menuIndex = 3;
           }
           menuIndex = 0;
           break;
@@ -1585,6 +1600,7 @@ void loop() {
             menuIndex = 0;
             }
           break;
+#endif
 
           case SETTINGS_SCREEN:
             if (menuIndex == 0) {
@@ -1829,12 +1845,19 @@ void loop() {
 
   switch(currentState) {
     case MAIN_MENU: {
+#if !defined(CHIP_ESP32C3)
       const char* m[] = {"Wi-Fi", "BLE", "IR", "RFID", "Files", "Info", "Settings"};
       const uint8_t* ico[] = {ico_wifi, ico_ble, ico_ir, ico_rfid, ico_files, ico_info, ico_settings};
       renderMenu("Main Menu", m, ico, 7, menuIndex);
+#else
+      const char* m[] = {"Wi-Fi", "BLE", "IR", "Files", "Info", "Settings"};
+      const uint8_t* ico[] = {ico_wifi, ico_ble, ico_ir, ico_files, ico_info, ico_settings};
+      renderMenu("Main Menu", m, ico, 6, menuIndex);
+#endif
     } break;
 
 
+#if !defined(CHIP_ESP32C3)
     case FORMAT_CARD: {
       drawHeader("RFID");
       display.setCursor(0, 20);
@@ -1844,9 +1867,9 @@ void loop() {
         display.setCursor(0, 35);
         display.println("Formatting...");
         display.display();
-    
+
         fullFormatCard();
-    
+
         display.setCursor(0, 35);
         display.println("Done!");
         display.display();
@@ -1871,9 +1894,9 @@ void loop() {
             lastUid += String(rfid.uid.uidByte[i] < 0x10 ? "0" : "");
             lastUid += String(rfid.uid.uidByte[i], HEX);
         }
-        
+
         performFullDump(); // Запускаем наш тяжелый процесс
-        
+
         display.fillRect(0, 30, 128, 34, BLACK);
         display.setCursor(0, 40);
         display.println("Done! Saved as:");
@@ -1882,7 +1905,7 @@ void loop() {
 
         rfid.PICC_HaltA();
         rfid.PCD_StopCrypto1();
-        delay(2000); 
+        delay(2000);
         currentState = RFID_MENU;
       }
     } break;
@@ -1891,10 +1914,10 @@ void loop() {
       drawHeader("RFID");
       // Обновленный список из 5 пунктов
       const char* rItems[] = {
-        "Read", 
-        "Dump", 
-        "Format", 
-        "Emulate", 
+        "Read",
+        "Dump",
+        "Format",
+        "Emulate",
         "Main Menu"
       };
       renderMenu("RFID", rItems, nullptr, 5, menuIndex);
@@ -1916,12 +1939,12 @@ void loop() {
           }
       }
 
-      rfid.PCD_WriteRegister(rfid.CommandReg, 0x00); 
-      rfid.PCD_WriteRegister(rfid.FIFOLevelReg, 0x80); 
+      rfid.PCD_WriteRegister(rfid.CommandReg, 0x00);
+      rfid.PCD_WriteRegister(rfid.FIFOLevelReg, 0x80);
       for (int i = 0; i < 4; i++) {
         rfid.PCD_WriteRegister(rfid.FIFODataReg, emuUid[i]);
       }
-      rfid.PCD_WriteRegister(rfid.CommandReg, 0x03);  
+      rfid.PCD_WriteRegister(rfid.CommandReg, 0x03);
     } break;
 
     case RFID_RECV: {
@@ -1954,6 +1977,7 @@ void loop() {
         display.print("[OK] to Cancel");
       }
     } break;
+#endif
 
     case WIFI_MENU: {
       const char* m[] = {"Start AP", "Scan", "Attacks", "Sniffers", "Graph", "KFWGotchi", "Evil Portal", "Back"};

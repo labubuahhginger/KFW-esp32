@@ -3,6 +3,7 @@
 ![KFW Banner](https://img.shields.io/badge/ESP32-Pentesting-orange?style=for-the-badge)
 ![Version](https://img.shields.io/badge/Version-1.0%20Stable-brightgreen?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
+![Build](https://github.com/labubuahhginger/kfw-esp32/workflows/Build%20KFW%20Firmware/badge.svg)
 
 **KFW** (KalFirmWare) is a comprehensive ESP32-based multi-tool firmware for wireless security testing, RFID experimentation, and infrared control.
 
@@ -15,6 +16,16 @@ Visit the **[KFW Web Flasher](https://labubuahhginger.github.io/kfwflasher.githu
 1. Download the latest release from [GitHub Releases](https://github.com/labubuahhginger/kfw-esp32/releases)
 2. Flash using Arduino IDE or PlatformIO
 3. Connect to your ESP32 and enjoy!
+
+## 📦 Supported Boards
+
+| Board | Wi-Fi | BLE | IR | RFID | Build Status |
+|-------|-------|-----|----|----|--------------|
+| **ESP32** | ✅ | ✅ | ✅ | ✅ | ![esp32dev](https://github.com/labubuahhginger/kfw-esp32/workflows/Build%20KFW%20Firmware/badge.svg?branch=main) |
+| **ESP32-S3** | ✅ | ✅ | ✅ | ✅ | ![esp32s3](https://github.com/labubuahhginger/kfw-esp32/workflows/Build%20KFW%20Firmware/badge.svg?branch=main) |
+| **ESP32-C3** | ✅ | ✅ | ✅ | ❌ | ![esp32c3](https://github.com/labubuahhginger/kfw-esp32/workflows/Build%20KFW%20Firmware/badge.svg?branch=main) |
+
+> ⚠️ **ESP32-C3:** RFID (MFRC522) not supported due to lack of HSPI peripheral.
 
 ## ✨ Features
 
@@ -55,14 +66,16 @@ Visit the **[KFW Web Flasher](https://labubuahhginger.github.io/kfwflasher.githu
 
 | Component | Model | Notes |
 |-----------|-------|-------|
-| Microcontroller | ESP32 Dev Module | Any ESP32 with 4MB+ flash |
+| Microcontroller | ESP32 / ESP32-S3 / ESP32-C3 | Any board with 4MB+ flash |
 | Display | SSD1306 OLED | 128x64, I2C |
-| RFID Reader | MFRC522 | SPI interface |
-| IR Receiver | TSOP38238 | GPIO 15 |
-| IR Transmitter | IR LED | GPIO 13 |
-| Buttons | Tactile switches | GPIO 32 (NEXT), GPIO 33 (OK) |
+| RFID Reader | MFRC522 | SPI interface (not supported on ESP32-C3) |
+| IR Receiver | TSOP38238 | See pinout below |
+| IR Transmitter | IR LED | GPIO with 330Ω resistor |
+| Buttons | Tactile switches | Pull-up configuration |
 
 ### Wiring Diagram
+
+#### ESP32 (Original)
 ```
 ESP32          →  Component
 ---------------------------------
@@ -77,6 +90,35 @@ GPIO 15        →  IR Receiver
 GPIO 13        →  IR LED (+ 330Ω resistor)
 GPIO 32        →  NEXT Button (Pull-up)
 GPIO 33        →  OK Button (Pull-up)
+```
+
+#### ESP32-S3
+```
+ESP32-S3       →  Component
+---------------------------------
+GPIO 1  (SDA)  →  OLED SDA
+GPIO 2  (SCL)  →  OLED SCL
+GPIO 10 (SS)   →  MFRC522 SDA
+GPIO 11 (RST)  →  MFRC522 RST
+GPIO 12 (SCK)  →  MFRC522 SCK
+GPIO 13 (MISO) →  MFRC522 MISO
+GPIO 14 (MOSI) →  MFRC522 MOSI
+GPIO 16        →  IR Receiver
+GPIO 17        →  IR LED (+ 330Ω resistor)
+GPIO 4         →  NEXT Button (Pull-up)
+GPIO 5         →  OK Button (Pull-up)
+```
+
+#### ESP32-C3 (No RFID)
+```
+ESP32-C3       →  Component
+---------------------------------
+GPIO 8  (SDA)  →  OLED SDA
+GPIO 9  (SCL)  →  OLED SCL
+GPIO 6         →  IR Receiver
+GPIO 7         →  IR LED (+ 330Ω resistor)
+GPIO 4         →  NEXT Button (Pull-up)
+GPIO 5         →  OK Button (Pull-up)
 ```
 
 ## 📖 Usage
@@ -121,6 +163,39 @@ LittleFS (built-in)
 WiFi (built-in)
 WebServer (built-in)
 ```
+
+## 🔨 Building
+
+### Using PlatformIO
+
+```bash
+# Clone repository
+git clone https://github.com/labubuahhginger/kfw-esp32.git
+cd kfw-esp32
+
+# Install PlatformIO Core
+pip install platformio
+
+# Build for specific board
+pio run -e esp32dev    # ESP32
+pio run -e esp32s3     # ESP32-S3
+pio run -e esp32c3     # ESP32-C3
+
+# Upload firmware
+pio run -e esp32dev -t upload
+
+# Monitor serial output
+pio device monitor
+```
+
+### CI/CD
+
+This project uses GitHub Actions for automated builds:
+- Every push to `main` or `dev` branches triggers builds for all boards
+- Tagged releases (`v*`) automatically create GitHub Releases with firmware binaries
+- Build artifacts are available for 90 days
+
+See [`.github/workflows/build.yml`](.github/workflows/build.yml) for configuration.
 
 ## ⚠️ Legal Disclaimer
 

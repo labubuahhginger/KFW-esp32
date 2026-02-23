@@ -14,33 +14,37 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+    strategy:
+      matrix:
+        board: [esp32dev, esp32s3, esp32c3]
+      fail-fast: false
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-      
+
       - name: Cache PlatformIO
         uses: actions/cache@v4
         with:
           path: |
             ~/.platformio
-          key: ${{ runner.os }}-pio-${{ hashFiles('**/platformio.ini') }}
+          key: ${{ runner.os }}-pio-${{ hashFiles('**/platformio.ini') }}-${{ matrix.board }}
           restore-keys: |
             ${{ runner.os }}-pio-
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      
+
       - name: Install PlatformIO Core
         run: |
           python -m pip install --upgrade pip
           pip install --upgrade platformio
-      
-      - name: Build Firmware
-        run: pio run -e esp32dev
-        
+
+      - name: Build Firmware (${{ matrix.board }})
+        run: pio run -e ${{ matrix.board }}
+
       - name: Get Version
         id: version
         run: |
@@ -51,18 +55,19 @@ jobs:
           fi
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
         shell: bash
-      
+
       - name: Create Dist Directory
         run: mkdir -p dist
-      
-      - name: Rename Firmware
+
+      - name: Rename Firmware (${{ matrix.board }})
         run: |
-          cp .pio/build/esp32dev/firmware.bin dist/firmware-kfw-esp32dev-${{ steps.version.outputs.VERSION }}.bin
-      
+          cp .pio/build/${{ matrix.board }}/firmware.bin \
+             dist/firmware-kfw-${{ matrix.board }}-${{ steps.version.outputs.VERSION }}.bin
+
       - name: Upload Firmware Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: firmware
+          name: firmware-${{ matrix.board }}
           path: dist/*.bin
           retention-days: 90
 
@@ -70,14 +75,26 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
-    
+
     steps:
-      - name: Download Artifact
+      - name: Download ESP32 Firmware
         uses: actions/download-artifact@v4
         with:
-          name: firmware
+          name: firmware-esp32dev
           path: release
-      
+
+      - name: Download ESP32-S3 Firmware
+        uses: actions/download-artifact@v4
+        with:
+          name: firmware-esp32s3
+          path: release
+
+      - name: Download ESP32-C3 Firmware
+        uses: actions/download-artifact@v4
+        with:
+          name: firmware-esp32c3
+          path: release
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -85,16 +102,41 @@ jobs:
           body: |
             # KFW ESP32 Firmware ${{ github.ref_name }}
 
-            ## Installation
+            ## Поддерживаемые платы
 
+            | Плата | Файл | Примечания |
+            |-------|------|------------|
+            | ESP32 | `firmware-kfw-esp32dev-*.bin` | Оригинальный ESP32 |
+            | ESP32-S3 | `firmware-kfw-esp32s3-*.bin` | С поддержкой RFID |
+            | ESP32-C3 | `firmware-kfw-esp32c3-*.bin` | **Без RFID** (нет SPI) |
+
+            ## Установка
+
+            ### ESP32
             ```bash
-            # Using esptool
             esptool.py --chip esp32 --port /dev/ttyUSB0 erase_flash
             esptool.py --chip esp32 --port /dev/ttyUSB0 write_flash 0x0 firmware-kfw-esp32dev-${{ github.ref_name }}.bin
-
-            # Using PlatformIO
-            pio run -e esp32dev -t upload
             ```
+
+            ### ESP32-S3
+            ```bash
+            esptool.py --chip esp32s3 --port /dev/ttyUSB0 erase_flash
+            esptool.py --chip esp32s3 --port /dev/ttyUSB0 write_flash 0x0 firmware-kfw-esp32s3-${{ github.ref_name }}.bin
+            ```
+
+            ### ESP32-C3
+            ```bash
+            esptool.py --chip esp32c3 --port /dev/ttyUSB0 erase_flash
+            esptool.py --chip esp32c3 --port /dev/ttyUSB0 write_flash 0x0 firmware-kfw-esp32c3-${{ github.ref_name }}.bin
+            ```
+
+            ## Платформы
+
+            - **ESP32**: Полная поддержка (Wi-Fi, BLE, IR, RFID)
+            - **ESP32-S3**: Полная поддержка (Wi-Fi, BLE, IR, RFID)
+            - **ESP32-C3**: Ограниченная поддержка (Wi-Fi, BLE, IR, **без RFID**)
+
+            > ⚠️ **Важно:** ESP32-C3 не поддерживает SPI для MFRC522, поэтому RFID-функционал отключён.
           files: release/*.bin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

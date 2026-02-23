@@ -1,37 +1,87 @@
+# KFW ESP32 - Конфигурация пинов
 
-This directory is intended for project header files.
+Эта папка содержит заголовочные файлы для проекта KFW ESP32.
 
-A header file is a file containing C declarations and macro definitions
-to be shared between several project source files. You request the use of a
-header file in your project source file (C, C++, etc) located in `src` folder
-by including it, with the C preprocessing directive `#include'.
+## Поддерживаемые платы
 
-```src/main.c
+| Плата | Кнопки | RFID (SPI) | ИК-порт | OLED (I2C) |
+|-------|--------|------------|---------|------------|
+| **ESP32** | NEXT: 32, OK: 33 | SS: 5, RST: 27, SCK: 18, MISO: 19, MOSI: 23 |_RECV: 15, SEND: 13 | SDA: 21, SCL: 22 |
+| **ESP32-S3** | NEXT: 4, OK: 5 | SS: 10, RST: 11, SCK: 12, MISO: 13, MOSI: 14 | RECV: 16, SEND: 17 | SDA: 1, SCL: 2 |
+| **ESP32-C3** | NEXT: 4, OK: 5 | **Не поддерживается** | RECV: 6, SEND: 7 | SDA: 8, SCL: 9 |
 
-#include "header.h"
+> **Примечание:** ESP32-C3 не поддерживает SPI для MFRC522, поэтому RFID-функционал отключён.
 
-int main (void)
-{
- ...
-}
+## Файлы
+
+- `config.h` — конфигурация пинов и общие настройки
+- `display_wrapper.h` — обёрка для OLED дисплея SSD1306
+- `button_wrapper.h` — обёрка для кнопок
+
+## Сборка для разных плат
+
+### ESP32 (по умолчанию)
+```bash
+pio run -e esp32dev
 ```
 
-Including a header file produces the same results as copying the header file
-into each source file that needs it. Such copying would be time-consuming
-and error-prone. With a header file, the related declarations appear
-in only one place. If they need to be changed, they can be changed in one
-place, and programs that include the header file will automatically use the
-new version when next recompiled. The header file eliminates the labor of
-finding and changing all the copies as well as the risk that a failure to
-find one copy will result in inconsistencies within a program.
+### ESP32-S3
+```bash
+pio run -e esp32s3
+```
 
-In C, the convention is to give header files names that end with `.h'.
+### ESP32-C3
+```bash
+pio run -e esp32c3
+```
 
-Read more about using header files in official GCC documentation:
+## Распиновка для ESP32 (оригинал)
 
-* Include Syntax
-* Include Operation
-* Once-Only Headers
-* Computed Includes
+```
+ESP32          →  Компонент
+---------------------------------
+GPIO 21 (SDA)  →  OLED SDA
+GPIO 22 (SCL)  →  OLED SCL
+GPIO 5  (SS)   →  MFRC522 SDA
+GPIO 18 (SCK)  →  MFRC522 SCK
+GPIO 19 (MISO) →  MFRC522 MISO
+GPIO 23 (MOSI) →  MFRC522 MOSI
+GPIO 27        →  MFRC522 RST
+GPIO 15        →  IR Receiver
+GPIO 13        →  IR LED (+ 330Ω резистор)
+GPIO 32        →  NEXT Button (Pull-up)
+GPIO 33        →  OK Button (Pull-up)
+```
 
-https://gcc.gnu.org/onlinedocs/cpp/Header-Files.html
+## Распиновка для ESP32-S3
+
+```
+ESP32-S3       →  Компонент
+---------------------------------
+GPIO 1  (SDA)  →  OLED SDA
+GPIO 2  (SCL)  →  OLED SCL
+GPIO 10 (SS)   →  MFRC522 SDA
+GPIO 11 (RST)  →  MFRC522 RST
+GPIO 12 (SCK)  →  MFRC522 SCK
+GPIO 13 (MISO) →  MFRC522 MISO
+GPIO 14 (MOSI) →  MFRC522 MOSI
+GPIO 16        →  IR Receiver
+GPIO 17        →  IR LED (+ 330Ω резистор)
+GPIO 4         →  NEXT Button (Pull-up)
+GPIO 5         →  OK Button (Pull-up)
+```
+
+## Распиновка для ESP32-C3
+
+```
+ESP32-C3       →  Компонент
+---------------------------------
+GPIO 8  (SDA)  →  OLED SDA
+GPIO 9  (SCL)  →  OLED SCL
+GPIO 6         →  IR Receiver
+GPIO 7         →  IR LED (+ 330Ω резистор)
+GPIO 4         →  NEXT Button (Pull-up)
+GPIO 5         →  OK Button (Pull-up)
+```
+
+> **Важно:** RFID (MFRC522) не поддерживается на ESP32-C3 из-за отсутствия HSPI.
