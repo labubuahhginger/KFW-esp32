@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-  <script type="module" src="https://unpkg.com/esp-web-tools@8/dist/web/install-button.js?module"></script>
+  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
 
   <style>
     :root {
@@ -352,37 +352,94 @@
     .step-content a { color: var(--md-sys-color-primary); text-decoration: none; }
     .step-content a:hover { text-decoration: underline; }
 
-    /* ESP Web Tools v8 styles override */
+    /* ESP Web Tools v10 styles override with MD3 */
     esp-web-install-button {
       display: block;
       width: 100%;
       max-width: 320px;
       margin: 0 auto;
-      /* CSS Custom Properties for esp-web-tools v8 */
-      --primary-color: var(--md-sys-color-primary);
-      --on-primary-color: var(--md-sys-color-on-primary);
-      --surface-color: var(--md-sys-color-surface);
-      --on-surface-color: var(--md-sys-color-on-surface);
-      --background-color: var(--md-sys-color-background);
-      --mdc-theme-primary: var(--md-sys-color-primary);
-      --mdc-theme-on-primary: var(--md-sys-color-on-primary);
-      --mdc-theme-surface: var(--md-sys-color-surface);
-      --mdc-theme-on-surface: var(--md-sys-color-on-surface);
-      --mdc-theme-background: var(--md-sys-color-background);
+      /* CSS Custom Properties for esp-web-tools v10 */
+      --esp-color-primary: var(--md-sys-color-primary);
+      --esp-color-on-primary: var(--md-sys-color-on-primary);
+      --esp-color-surface: var(--md-sys-color-surface);
+      --esp-color-on-surface: var(--md-sys-color-on-surface);
+      --esp-color-background: var(--md-sys-color-background);
+      --esp-color-on-background: var(--md-sys-color-on-background);
+      --esp-font-family: 'Outfit', sans-serif;
     }
     
-    /* Global override for MDC buttons inside esp-web-install-button */
-    esp-web-install-button .mdc-button,
-    esp-web-install-button .mdc-button:not(:disabled),
-    esp-web-install-button .mdc-button--raised,
-    esp-web-install-button .mdc-button--unelevated {
-      background-color: var(--md-sys-color-primary) !important;
+    /* Hide default button when slotted button is present */
+    esp-web-install-button:not(:has(button[slot="activate"])) .default-button {
+      display: block;
+    }
+    
+    /* Style slotted button with MD3 filled button */
+    esp-web-install-button button[slot="activate"] {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      height: 48px;
+      padding: 0 24px;
+      background: var(--md-sys-color-primary) !important;
       color: var(--md-sys-color-on-primary) !important;
+      font-family: 'Outfit', sans-serif !important;
+      font-size: 0.95rem !important;
+      font-weight: 600 !important;
+      letter-spacing: 0.1px !important;
+      border: none !important;
+      border-radius: 100px !important;
+      cursor: pointer !important;
+      transition: box-shadow 0.2s, transform 0.15s !important;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24) !important;
     }
     
-    esp-web-install-button .mdc-button .mdc-button__label {
+    esp-web-install-button button[slot="activate"]:hover {
+      box-shadow: 0 3px 6px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.12) !important;
+      transform: translateY(-1px) !important;
+    }
+    
+    esp-web-install-button button[slot="activate"]:active {
+      transform: translateY(0) !important;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.12) !important;
+    }
+    
+    /* MD3 Dialog styles */
+    esp-web-install-button::part(dialog) {
+      background: var(--md-sys-color-surface) !important;
+      color: var(--md-sys-color-on-surface) !important;
+      font-family: 'Outfit', sans-serif !important;
+      border-radius: 28px !important;
+    }
+    
+    esp-web-install-button::part(dialog-heading) {
+      font-family: 'Space Mono', monospace !important;
+      font-weight: 700 !important;
+      color: var(--md-sys-color-on-surface) !important;
+    }
+    
+    esp-web-install-button::part(dialog-content) {
+      font-family: 'Outfit', sans-serif !important;
+      color: var(--md-sys-color-on-surface-variant) !important;
+    }
+    
+    esp-web-install-button::part(button-primary) {
+      background: var(--md-sys-color-primary) !important;
+      color: var(--md-sys-color-on-primary) !important;
       font-family: 'Outfit', sans-serif !important;
       font-weight: 600 !important;
+      border-radius: 100px !important;
+      padding: 10px 24px !important;
+    }
+    
+    esp-web-install-button::part(button-secondary) {
+      background: var(--md-sys-color-secondary-container) !important;
+      color: var(--md-sys-color-on-secondary-container) !important;
+      font-family: 'Outfit', sans-serif !important;
+      font-weight: 600 !important;
+      border-radius: 100px !important;
+      padding: 10px 24px !important;
     }
 
     code {
@@ -488,7 +545,12 @@
       </div>
 
       <div class="install-btn-wrapper">
-        <esp-web-install-button id="install-button" manifest="manifest-esp32dev.json"></esp-web-install-button>
+        <esp-web-install-button id="install-button" manifest="manifest-esp32dev.json">
+          <button slot="activate" class="btn-filled md3-button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            Connect &amp; Flash
+          </button>
+        </esp-web-install-button>
       </div>
       <div class="install-note">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -595,6 +657,88 @@
   </footer>
 
   <script>
+    // Inject MD3 styles into ESP Web Tools shadow root
+    function injectMD3Styles(shadowRoot) {
+      if (!shadowRoot || shadowRoot._md3Injected) return;
+      shadowRoot._md3Injected = true;
+      
+      const style = document.createElement('style');
+      style.textContent = `
+        :host {
+          --esp-color-primary: ${getComputedStyle(document.documentElement).getPropertyValue('--md-sys-color-primary').trim()};
+          --esp-color-on-primary: ${getComputedStyle(document.documentElement).getPropertyValue('--md-sys-color-on-primary').trim()};
+          --esp-color-surface: ${getComputedStyle(document.documentElement).getPropertyValue('--md-sys-color-surface').trim()};
+          --esp-color-on-surface: ${getComputedStyle(document.documentElement).getPropertyValue('--md-sys-color-on-surface').trim()};
+          --esp-font-family: 'Outfit', sans-serif;
+        }
+        
+        /* Button inside shadow DOM */
+        .mdc-button, .mdc-button--raised, .mdc-button--unelevated {
+          background-color: var(--esp-color-primary, #006874) !important;
+          color: var(--esp-color-on-primary, #ffffff) !important;
+          border-radius: 100px !important;
+          font-family: 'Outfit', sans-serif !important;
+          font-weight: 600 !important;
+          height: 48px !important;
+          padding: 0 24px !important;
+        }
+        
+        .mdc-button__label {
+          font-family: 'Outfit', sans-serif !important;
+          font-weight: 600 !important;
+        }
+        
+        /* Dialog */
+        .dialog, dialog, mwc-dialog, .mdc-dialog, .mdc-dialog__surface {
+          background: var(--esp-color-surface, #fafdfd) !important;
+          color: var(--esp-color-on-surface, #191c1d) !important;
+          border-radius: 28px !important;
+          font-family: 'Outfit', sans-serif !important;
+        }
+        
+        .dialog-heading, .mdc-dialog__title {
+          font-family: 'Space Mono', monospace !important;
+          font-weight: 700 !important;
+          color: var(--esp-color-on-surface, #191c1d) !important;
+        }
+        
+        .dialog-content, .mdc-dialog__content {
+          font-family: 'Outfit', sans-serif !important;
+          color: var(--esp-color-on-surface, #3f484a) !important;
+        }
+        
+        .mdc-dialog__actions {
+          border-top-color: rgba(0,0,0,0.12) !important;
+        }
+        
+        /* Secondary button */
+        .mdc-button--outlined {
+          background: transparent !important;
+          border-color: var(--esp-color-primary, #006874) !important;
+          color: var(--esp-color-primary, #006874) !important;
+        }
+      `;
+      shadowRoot.appendChild(style);
+    }
+
+    // Watch for ESP Web Tools and inject styles
+    function watchAndInject() {
+      const installButton = document.getElementById('install-button');
+      if (installButton) {
+        if (installButton.shadowRoot) {
+          injectMD3Styles(installButton.shadowRoot);
+        } else {
+          const observer = new MutationObserver(() => {
+            if (installButton.shadowRoot) {
+              injectMD3Styles(installButton.shadowRoot);
+              observer.disconnect();
+            }
+          });
+          observer.observe(document.body, { childList: true, subtree: true });
+        }
+      }
+    }
+
     // Update install-button manifest based on selected board
     document.querySelectorAll('input[name="board"]').forEach(radio => {
       radio.addEventListener('change', function() {
@@ -604,11 +748,20 @@
       });
     });
 
-    // Initialize with default board
+    // Initialize with default board and inject styles
     document.addEventListener('DOMContentLoaded', function() {
       const defaultBoard = document.querySelector('input[name="board"]:checked').value;
       const installButton = document.getElementById('install-button');
       installButton.setAttribute('manifest', `manifest-${defaultBoard}.json`);
+      
+      // Inject styles after component loads
+      setTimeout(watchAndInject, 100);
+      setTimeout(watchAndInject, 500);
+    });
+
+    // Re-inject on theme change
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      setTimeout(watchAndInject, 100);
     });
   </script>
 
