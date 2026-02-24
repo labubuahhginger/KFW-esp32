@@ -13,6 +13,7 @@
 #include <IRsend.h>
 #include <IRutils.h>
 #include <Arduino.h>
+#include <cstring>
 #include "config.h"
 #include "display_wrapper.h"
 #include "button_wrapper.h"
@@ -53,6 +54,52 @@ void renderMenu(const char* title, const char* items[], const uint8_t* icons[], 
 
     display.setCursor(icons != nullptr ? 14 : 4, yPos + 2);
     display.print(items[idx]);
+
+    if (isSelected) {
+      display.setCursor(118, yPos + 2);
+      display.print(">");
+    }
+  }
+
+  display.drawLine(0, 54, 128, 54, WHITE);
+  display.setCursor(0, 56);
+  display.print("[N]Next");
+  display.setCursor(80, 56);
+  display.print("[OK]Select");
+}
+
+void renderMenuWithRSSI(const char* title, const char* items[], int count, int sel) {
+  display.fillRect(0, 0, 128, 12, WHITE);
+  display.setTextColor(BLACK);
+  display.setTextSize(1);
+  display.setCursor(4, 2);
+  display.print(title);
+  display.setTextColor(WHITE);
+
+  int maxVisible = 3;
+  int startIdx = 0;
+  if (sel >= maxVisible) startIdx = sel - maxVisible + 1;
+
+  for (int i = 0; i < maxVisible; i++) {
+    int idx = startIdx + i;
+    if (idx >= count) break;
+
+    int yPos = 13 + (i * 13);
+    bool isSelected = (idx == sel);
+
+    if (isSelected) {
+      display.fillRect(0, yPos, 128, 13, WHITE);
+      display.setTextColor(BLACK);
+    } else {
+      display.setTextColor(WHITE);
+    }
+
+    display.setCursor(4, yPos + 2);
+    display.print(items[idx]);
+
+    // Показываем RSSI справа
+    display.setCursor(95, yPos + 2);
+    display.print(abs(WiFi.RSSI(idx)));
 
     if (isSelected) {
       display.setCursor(118, yPos + 2);
@@ -368,11 +415,12 @@ void applyBlePower() {
   }
 }
 
-enum State { 
-  MAIN_MENU, WIFI_MENU, WIFI_SCAN_LIST, WIFI_ATTACKS, 
+enum State {
+  MAIN_MENU, WIFI_MENU, WIFI_SCAN_LIST, WIFI_ATTACKS,
   BEACON_SOURCE, BEACON_COUNT_SEL, BEACON_FILE_SEL, BEACON_RUN,
   DEAUTH_LIST, DEAUTH_RUN, BLE_MENU, BLE_RUN,
-  FILES_MENU, LITTLEFS_LIST, RFID_MENU, RFID_EMULATION, FORMAT_CARD, RFID_DUMP_PROCESS, RFID_RECV, FILE_OPTIONS, FILE_CONTENT, WEBUI_ACTIVE, TV_B_GONE_MODE, SYSTEM_INFO, PWN_MODE, SNIFFERS_MENU, PROBE_SNIFFER, BEACON_SNIFFER, CH_GRAPH, IR_MENU, IR_RECV, IR_SEND_LAST, SETTINGS_SCREEN, WIFI_INFO_SCREEN, EVIL_PORTAL
+  FILES_MENU, LITTLEFS_LIST, RFID_MENU, RFID_EMULATION, FORMAT_CARD, RFID_DUMP_PROCESS, RFID_RECV, FILE_OPTIONS, FILE_CONTENT, WEBUI_ACTIVE, TV_B_GONE_MODE, SYSTEM_INFO, PWN_MODE, SNIFFERS_MENU, PROBE_SNIFFER, BEACON_SNIFFER, CH_GRAPH, IR_MENU, IR_RECV, IR_SEND_LAST, SETTINGS_SCREEN, WIFI_INFO_SCREEN, EVIL_PORTAL,
+  WIFI_CONNECT_LIST, WIFI_PASSWORD_INPUT, WIFI_SCAN_HOSTS, WIFI_KEYBOARD
 };
 State currentState = MAIN_MENU;
 
@@ -395,6 +443,25 @@ String beaconSSIDs[30];
 int actualBeaconSSIDs = 0;
 String ble_mode_name = "";
 bool selectModeForPwn = false;
+
+// Переменные для подключения к Wi-Fi
+String selectedSSID = "";
+String selectedPassword = "";
+bool isConnecting = false;
+bool isConnected = false;
+String wifiScanSSIDs[20];  // Глобальный массив для SSID
+
+// Переменные для ввода пароля через Serial
+bool waitForPassword = false;
+String passwordInputBuffer = "";
+unsigned long passwordStartTime = 0;
+
+// Переменные для сканирования хостов
+IPAddress scannedHosts[50];
+String scannedMACs[50];
+int hostsCount = 0;
+unsigned long scanStartTime = 0;
+bool isScanningHosts = false;
 
 struct IRCode {
   decode_type_t type;
@@ -1250,6 +1317,8 @@ void setup() {
     //LittleFS.mkdir("/cal_hs");
   //}
   Serial.begin(115200);
+  Serial.setRxBufferSize(256);
+  Serial.flush();
   display.begin();
   buttons.begin();
   LittleFS.begin(true);
@@ -1441,76 +1510,111 @@ void fullFormatCard() {
 
 void loop() {
   buttons.update();
-  
+
+  // Отладка - вывод состояния каждые 2 секунды
+  static unsigned long lastDebug = 0;
+  if (millis() - lastDebug > 2000) {
+    Serial.printf("\n[DEBUG] State=%d, WiFi=%d, waitForPassword=%d, SerialAvail=%d\n", 
+                  currentState, WiFi.status(), waitForPassword, Serial.available());
+    lastDebug = millis();
+  }
+
   // Обработка DNS сервера для Evil Portal
   if (currentState == EVIL_PORTAL) {
     dnsServer.processNextRequest();
   }
-  
+
   if (currentState == WEBUI_ACTIVE || currentState == EVIL_PORTAL) {
     server.handleClient();
+  }
+  
+  // Проверка статуса подключения Wi-Fi
+  if (isConnecting) {
+    if (WiFi.status() == WL_CONNECTED) {
+      isConnected = true;
+      isConnecting = false;
+    } else if (WiFi.status() == WL_CONNECT_FAILED) {
+      isConnected = false;
+      isConnecting = false;
+    }
+  }
+  
+  // Сканирование хостов в фоне (ARP scan)
+  if (currentState == WIFI_SCAN_HOSTS && isScanningHosts) {
+    if (WiFi.status() == WL_CONNECTED) {
+      // Показываем информацию о сети
+      // Для полноценного ARP сканирования нужно отправлять ARP запросы
+      if (hostsCount == 0) {
+        hostsCount = 1; // Как минимум шлюз
+        scannedHosts[0] = WiFi.gatewayIP();
+      }
+    }
   }
 
   while (Serial.available()) {
     char c = Serial.read();
     serialBuffer += c;
-    if (serialBuffer.length() > 3000) 
+    if (serialBuffer.length() > 3000)
       serialBuffer = serialBuffer.substring(1500);
   }
 
   bool n = buttons.nextPressed();
   bool ok = buttons.okPressed();
-  
-  if (n || ok) {
-    if (n) {
-      if (currentState == IR_MENU && menuIndex > 4) {
-        menuIndex = 0;
-      }
-      if (currentState == BEACON_COUNT_SEL) {
-        beaconCount = (beaconCount >= 60) ? 5 : beaconCount + 5;
-      } 
-      else if (currentState == LITTLEFS_LIST) {
-        int fCount = countFiles();
-        scrollIndex = (scrollIndex + 1) % (fCount + 1);
-      }
-      else if (currentState == WIFI_SCAN_LIST) {
-        if (foundDevices > 0) scrollIndex = (scrollIndex + 1) % foundDevices;
-      }
-      else if (currentState == CH_GRAPH) {
-        menuIndex = (menuIndex + 1) % 13; 
-      }
-      else if (currentState == SETTINGS_SCREEN) {
-        menuIndex = (menuIndex + 1) % 4; 
-      }
-      else if (currentState == WIFI_SCAN_LIST) {
-        scrollIndex++;
-        if (scrollIndex > foundDevices) scrollIndex = 0; 
-      }
 
-      else if (currentState == WIFI_INFO_SCREEN) {
-        menuIndex++;
-        if (menuIndex > 1) menuIndex = 0; 
-      }
-      else {
-        int s = 7; 
-        if (currentState == MAIN_MENU) s = 7;
-        else if (currentState == WIFI_MENU) s = 8;
-        else if (currentState == WIFI_ATTACKS) s = 3; 
-        else if (currentState == BEACON_SOURCE) s = 3;
-        else if (currentState == SNIFFERS_MENU) s = 4;
-        else if (currentState == BLE_MENU) s = 4;
-        else if (currentState == FILES_MENU) s = 2;
-        else if (currentState == FILE_OPTIONS) s = 3;
-        else if (currentState == PWN_MODE && kfw_pwn.menu_active) s = 3;
-        
-        menuIndex = (menuIndex + 1) % s;
+  if (n) {
+    if (currentState == IR_MENU && menuIndex > 4) {
+      menuIndex = 0;
+    }
+    if (currentState == BEACON_COUNT_SEL) {
+      beaconCount = (beaconCount >= 60) ? 5 : beaconCount + 5;
+    }
+    else if (currentState == LITTLEFS_LIST) {
+      int fCount = countFiles();
+      scrollIndex = (scrollIndex + 1) % (fCount + 1);
+    }
+    else if (currentState == WIFI_SCAN_LIST || currentState == WIFI_CONNECT_LIST) {
+      if (foundDevices > 0) {
+        scrollIndex = (scrollIndex + 1) % foundDevices;
       }
     }
+    else if (currentState == CH_GRAPH) {
+      menuIndex = (menuIndex + 1) % 13;
+    }
+    else if (currentState == SETTINGS_SCREEN) {
+      menuIndex = (menuIndex + 1) % 4;
+    }
+    else if (currentState == WIFI_INFO_SCREEN) {
+      menuIndex++;
+      if (menuIndex > 1) menuIndex = 0;
+    }
+    else {
+      int s = 7;
+      if (currentState == MAIN_MENU) s = 7;
+      else if (currentState == WIFI_MENU) s = 9;
+      else if (currentState == WIFI_ATTACKS) s = 3;
+      else if (currentState == BEACON_SOURCE) s = 3;
+      else if (currentState == SNIFFERS_MENU) s = 4;
+      else if (currentState == BLE_MENU) s = 4;
+      else if (currentState == FILES_MENU) s = 2;
+      else if (currentState == FILE_OPTIONS) s = 3;
+      else if (currentState == PWN_MODE && kfw_pwn.menu_active) s = 3;
 
-    // 2. Обработка кнопки OK (Выбор)
-    // 2. Обработка кнопки OK (Выбор)
-    if (ok) {
-      if (currentState == CH_GRAPH) {
+      menuIndex = (menuIndex + 1) % s;
+    }
+  }
+
+  // Обработка кнопки OK (Выбор)
+  if (ok) {
+      // Обработка OK для WIFI_SCAN_LIST - выбор сети для информации
+      if (currentState == WIFI_SCAN_LIST && foundDevices > 0 && scrollIndex < foundDevices) {
+        target_ch = WiFi.channel(scrollIndex);
+        memcpy(target_mac, WiFi.BSSID(scrollIndex), 6);
+        target_ssid = wifiScanSSIDs[scrollIndex];
+        target_rssi = WiFi.RSSI(scrollIndex);
+        currentState = WIFI_INFO_SCREEN;
+        menuIndex = 0;
+      }
+      else if (currentState == CH_GRAPH) {
         if (selectModeForPwn) {
           // Если зашли через Гочи — стартуем атаку
           target_ch = menuIndex + 1; 
@@ -1674,32 +1778,40 @@ void loop() {
             menuIndex = 0; break;
 
           case WIFI_MENU:
-            if(menuIndex == 0) { 
-              String ssid = "";
-              String password = "";
-              File f = LittleFS.open("/webui.txt", "r");
-              if(f) {
-                ssid = f.readStringUntil('\n');
-                password = f.readStringUntil('\n');
-                f.close();
-                ssid.trim();
-                password.trim();
+            // Проверяем статус подключения
+            isConnected = (WiFi.status() == WL_CONNECTED);
+
+            if(menuIndex == 0) {
+              // Connect to Wi-Fi или Disconnect
+              if (isConnected) {
+                WiFi.disconnect();
+                isConnected = false;
+              } else {
+                WiFi.mode(WIFI_STA);
+                foundDevices = WiFi.scanNetworks();
+                // Сохраняем SSID в глобальный массив
+                for (int i = 0; i < foundDevices && i < 20; i++) {
+                  wifiScanSSIDs[i] = WiFi.SSID(i);
+                }
+                currentState = WIFI_CONNECT_LIST;
+                menuIndex = 0;
+                break;
               }
-              if(ssid == "") { ssid = "eladenselasobinubali"; password = "epresoumenaligaeligosa"; }
-              currentState = WEBUI_ACTIVE; 
-              WiFi.begin(ssid.c_str(), password.c_str()); 
-              while (WiFi.status() != WL_CONNECTED) delay(500); 
-              server.begin(); 
             }
-            else if(menuIndex == 1) { WiFi.mode(WIFI_STA); foundDevices = WiFi.scanNetworks(); currentState = WIFI_SCAN_LIST; }
+            else if(menuIndex == 1) {
+              // Scan Networks
+              WiFi.mode(WIFI_STA);
+              foundDevices = WiFi.scanNetworks();
+              currentState = WIFI_SCAN_LIST;
+            }
             else if(menuIndex == 2) currentState = WIFI_ATTACKS;
             else if(menuIndex == 3) currentState = SNIFFERS_MENU;
-            else if(menuIndex == 4) { 
-               WiFi.mode(WIFI_STA); foundDevices = WiFi.scanNetworks(); 
+            else if(menuIndex == 4) {
+               WiFi.mode(WIFI_STA); foundDevices = WiFi.scanNetworks();
                selectModeForPwn = false; currentState = CH_GRAPH; menuIndex = 0;
             }
-            else if(menuIndex == 5) { 
-              WiFi.mode(WIFI_STA); foundDevices = WiFi.scanNetworks(); 
+            else if(menuIndex == 5) {
+              WiFi.mode(WIFI_STA); foundDevices = WiFi.scanNetworks();
               selectModeForPwn = true; currentState = CH_GRAPH; menuIndex = 0;
             }
             else if(menuIndex == 6) {
@@ -1709,18 +1821,34 @@ void loop() {
               WiFi.softAP("Free WiFi");
               delay(300);
               Serial.println("AP IP: " + WiFi.softAPIP().toString());
-              
+
               // Настраиваем DNS сервер для captive portal
               dnsServer.stop();
               dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
               dnsServer.start(53, "*", WiFi.softAPIP());
-              
+
               server.stop();
               delay(100);
               server.begin();
               Serial.println("Server restarted for Evil Portal");
               currentState = EVIL_PORTAL;
               menuIndex = 0;
+            }
+            else if(menuIndex == 7) {
+              // Scan Hosts
+              if (WiFi.status() == WL_CONNECTED) {
+                hostsCount = 0;
+                scanStartTime = millis();
+                isScanningHosts = true;
+                currentState = WIFI_SCAN_HOSTS;
+              } else {
+                // Если не подключены, сначала нужно подключиться
+                WiFi.mode(WIFI_STA);
+                foundDevices = WiFi.scanNetworks();
+                currentState = WIFI_CONNECT_LIST;
+                menuIndex = 0;
+                break;
+              }
             }
             else currentState = MAIN_MENU;
             menuIndex = 0; break;
@@ -1799,11 +1927,15 @@ void loop() {
             break;
 
           case WIFI_ATTACKS:
-            if(menuIndex == 0) { 
-              WiFi.mode(WIFI_STA); 
-              foundDevices = WiFi.scanNetworks(); 
-              currentState = WIFI_SCAN_LIST; 
-              scrollIndex = 0; 
+            if(menuIndex == 0) {
+              WiFi.mode(WIFI_STA);
+              foundDevices = WiFi.scanNetworks();
+              // Сохраняем SSID в глобальный массив
+              for (int i = 0; i < foundDevices && i < 20; i++) {
+                wifiScanSSIDs[i] = WiFi.SSID(i);
+              }
+              currentState = WIFI_SCAN_LIST;
+              scrollIndex = 0;
             }
             else if(menuIndex == 1) currentState = BEACON_SOURCE;
             else currentState = WIFI_MENU;
@@ -1851,27 +1983,100 @@ void loop() {
           break;
 
           case WIFI_SCAN_LIST: {
-            if (foundDevices > 0) {
-              if (scrollIndex < foundDevices) {
-                // ВЫБРАЛИ СЕТЬ: сохраняем данные и идем на инфо-экран
-                target_ch = WiFi.channel(scrollIndex);
-                memcpy(target_mac, WiFi.BSSID(scrollIndex), 6);
-                target_ssid = WiFi.SSID(scrollIndex); // Добавь глобальную переменную String target_ssid
-                target_rssi = WiFi.RSSI(scrollIndex); // Добавь глобальную переменную int target_rssi
-            
-                currentState = WIFI_INFO_SCREEN; // Меняем стейт (добавь его в enum)
-                menuIndex = 0; // Сброс для нового меню (Attack/Back)
-              } else {
-              // ВЫБРАЛИ BACK: возвращаемся в меню вайфая
+            // Длинное нажатие OK - выход назад
+            if (buttons.okHeld() && millis() - lastPress > 500) {
               currentState = WIFI_MENU;
-              scrollIndex = 1; // Чтобы курсор стоял на "Scan"
-              }
-            } else {
-            currentState = WIFI_MENU;
+              scrollIndex = 1;
+              lastPress = millis();
             }
           } break;
         }
       }
+    }
+
+    // Обработка WIFI_CONNECT_LIST
+    if (currentState == WIFI_CONNECT_LIST) {
+      // Короткое нажатие OK - подключение к сети
+      if (ok) {
+        if (foundDevices > 0 && scrollIndex >= 0 && scrollIndex < foundDevices) {
+          selectedSSID = wifiScanSSIDs[scrollIndex];
+          // Очищаем буфер
+          while (Serial.available() > 0) Serial.read();
+          passwordInputBuffer = "";
+          // Пароль вводится через Serial
+          Serial.println();
+          Serial.println("=== ENTER PASSWORD ===");
+          Serial.print("SSID: ");
+          Serial.println(selectedSSID);
+          Serial.print("> ");
+          currentState = WIFI_PASSWORD_INPUT;
+          waitForPassword = true;
+          passwordStartTime = millis();
+        }
+      }
+      
+      // Длинное нажатие OK - выход назад
+      if (buttons.okHeld() && millis() - lastPress > 500) {
+        currentState = WIFI_MENU;
+        lastPress = millis();
+      }
+    }
+
+    // Обработка ввода пароля через Serial
+    if (currentState == WIFI_PASSWORD_INPUT && waitForPassword) {
+      // Проверяем Serial
+      int avail = Serial.available();
+      if (avail > 0) {
+        Serial.printf("\n[INPUT] Available=%d\n", avail);
+      }
+      
+      // Читаем ВСЕ символы из Serial
+      while (Serial.available() > 0) {
+        char c = Serial.read();
+        Serial.printf("[CHAR] code=%d c='%c'\n", c, c);
+        
+        if (c == '\n' || c == '\r') {
+          // Enter - подключаемся
+          Serial.println();
+          Serial.print("Connecting to ");
+          Serial.println(selectedSSID);
+          Serial.print("Password: ");
+          Serial.println(passwordInputBuffer);
+          
+          WiFi.begin(selectedSSID.c_str(), passwordInputBuffer);
+          isConnecting = true;
+          passwordInputBuffer = "";
+          waitForPassword = false;
+          currentState = WIFI_CONNECT_LIST;
+        }
+        else if (c == 8 || c == 127) {
+          // Backspace
+          if (passwordInputBuffer.length() > 0) {
+            passwordInputBuffer = passwordInputBuffer.substring(0, passwordInputBuffer.length() - 1);
+            Serial.print("\b \b");
+          }
+        }
+        else if (c >= 32 && c <= 126) {
+          // Символ
+          passwordInputBuffer += c;
+          Serial.print("*");
+        }
+      }
+      
+      // Отмена по OK (удержание 1 сек)
+      if (buttons.okHeld() && millis() - passwordStartTime > 1000) {
+        Serial.println("\nCancelled!");
+        passwordInputBuffer = "";
+        waitForPassword = false;
+        currentState = WIFI_CONNECT_LIST;
+      }
+    }
+
+    // Обработка WIFI_SCAN_HOSTS
+    if (currentState == WIFI_SCAN_HOSTS) {
+    if (ok) {
+      isScanningHosts = false;
+      currentState = WIFI_MENU;
     }
   }
 
@@ -2017,9 +2222,21 @@ void loop() {
 #endif
 
     case WIFI_MENU: {
-      const char* m[] = {"Start AP", "Scan", "Attacks", "Sniffers", "Graph", "KFWGotchi", "Evil Portal", "Back"};
-      renderMenu("Wi-Fi", m, nullptr, 8, menuIndex);
-      } break;
+      // Проверяем статус подключения для динамического меню
+      bool connected = (WiFi.status() == WL_CONNECTED);
+      const char* m[] = {
+        connected ? "Disconnect" : "Connect",
+        "Scan",
+        "Attacks",
+        "Sniffers",
+        "Graph",
+        "KFWGotchi",
+        "Evil Portal",
+        "Scan Hosts",
+        "Back"
+      };
+      renderMenu("Wi-Fi", m, nullptr, 9, menuIndex);
+    } break;
     
     case WIFI_ATTACKS: {
       const char* m[] = {"Deauther", "Beacon Spam", "Back"};
@@ -2225,48 +2442,128 @@ void loop() {
     } break;
 
     case WIFI_SCAN_LIST: {
-    drawHeader("Wi-Fi Scan");
-    if (foundDevices == 0) {
+      if (foundDevices == 0) {
+        drawHeader("Wi-Fi Scan");
+        display.setCursor(5, 25);
+        display.print("Scanning...");
+        display.setCursor(0, 40);
+        display.print("Wait...");
+        display.setCursor(0, 55);
+        display.print("[OK] Back");
+      } else {
+        // Копируем указатели на строки из глобального массива
+        const char* ssidPtrs[20];
+        for (int i = 0; i < foundDevices && i < 20; i++) {
+          ssidPtrs[i] = wifiScanSSIDs[i].c_str();
+        }
+        renderMenuWithRSSI("Wi-Fi Scan", ssidPtrs, foundDevices, scrollIndex);
+      }
+    } break;
+
+    case WIFI_CONNECT_LIST: {
+      // Показываем статус подключения
+      if (WiFi.status() == WL_CONNECTED) {
+        drawHeader("Connected");
+        display.fillRect(0, 12, 128, 11, WHITE);
+        display.setTextColor(BLACK);
+        display.setCursor(2, 14);
+        String s = WiFi.SSID();
+        if (s.length() > 16) s = s.substring(0, 15) + "..";
+        display.print(s);
+        display.setTextColor(WHITE);
+        display.setCursor(0, 55);
+        display.print("[OK] Menu");
+      } else if (isConnecting) {
+        drawHeader("Connecting");
+        display.fillRect(0, 12, 128, 11, WHITE);
+        display.setTextColor(BLACK);
+        display.setCursor(2, 14);
+        display.print("To: ");
+        String s = selectedSSID;
+        if (s.length() > 16) s = s.substring(0, 15) + "..";
+        display.print(s);
+        display.setTextColor(WHITE);
+        display.setCursor(0, 55);
+        display.print("Wait...");
+      } else if (foundDevices == 0) {
+        drawHeader("Select Network");
         display.setCursor(5, 30);
         display.print("No networks...");
-    } else {
-        int totalItems = foundDevices + 1; // Сети + пункт BACK
-        int startIdx = (scrollIndex / 4) * 4; 
-        int relativePos = scrollIndex % 4;
-        
-        float targetY = 18.0 + (relativePos * 10.0);
-        
-        // Магия плавности
-        if (abs(targetY - smoothY) > 40) smoothY = targetY; // Телепорт при прыжке
-        smoothY += (targetY - smoothY) * 0.22;
-        if (abs(targetY - smoothY) < 0.1) smoothY = targetY;
-
-        display.fillRect(0, (int)smoothY - 1, 128, 10, WHITE);
-
-        for (int i = 0; i < 4; i++) {
-            int idx = (scrollIndex / 4 * 4) + i;
-            if (idx >= totalItems) break;
-
-            int yPos = 18 + (i * 10);
-            
-            if (abs(yPos - (int)smoothY) < 5) display.setTextColor(BLACK);
-            else display.setTextColor(WHITE);
-
-            display.setCursor(2, yPos);
-            
-            if (idx < foundDevices) {
-                // Если это сеть
-                String ssid = WiFi.SSID(idx);
-                if(ssid.length() > 14) ssid = ssid.substring(0, 13) + "..";
-                display.print(ssid);
-                display.setCursor(105, yPos);
-                display.print(abs(WiFi.RSSI(idx)));
-            } else {
-                // Если это последний пункт
-                display.print("Main Menu");
-            }
-          }
+        display.setCursor(0, 55);
+        display.print("[OK] Back");
+      } else {
+        // Копируем указатели на строки из глобального массива
+        const char* ssidPtrs[20];
+        for (int i = 0; i < foundDevices && i < 20; i++) {
+          ssidPtrs[i] = wifiScanSSIDs[i].c_str();
         }
+        renderMenuWithRSSI("Select Network", ssidPtrs, foundDevices, scrollIndex);
+      }
+    } break;
+
+    case WIFI_PASSWORD_INPUT: {
+      // Экран ожидания ввода пароля через Serial
+      drawHeader("Password");
+      
+      display.fillRect(0, 12, 128, 11, WHITE);
+      display.setTextColor(BLACK);
+      display.setCursor(2, 14);
+      display.print("Enter via Serial");
+      
+      display.setTextColor(WHITE);
+      display.setCursor(0, 30);
+      display.print("SSID: ");
+      display.print(selectedSSID.substring(0, 16));
+      
+      display.setCursor(0, 45);
+      display.print("Waiting...");
+      
+      display.setCursor(0, 55);
+      display.print("[OK] Cancel");
+    } break;
+
+    case WIFI_SCAN_HOSTS: {
+      drawHeader("Scan Hosts");
+      
+      // Проверяем статус подключения
+      if (WiFi.status() != WL_CONNECTED) {
+        display.setCursor(0, 25);
+        display.print("Not connected!");
+        display.setCursor(0, 55);
+        display.print("[OK] Back");
+        break;
+      }
+      
+      // ARP сканирование в локальной сети
+      if (isScanningHosts && millis() - scanStartTime < 10000) {
+        display.setCursor(0, 20);
+        display.print("Scanning...");
+        display.setCursor(0, 35);
+        display.print("Time: ");
+        display.print((millis() - scanStartTime) / 1000);
+        display.print("s");
+        
+        // Показываем IP информацию
+        display.setCursor(0, 48);
+        display.print("IP: ");
+        display.println(WiFi.localIP());
+        display.setCursor(0, 60);
+        display.print("GW: ");
+        display.println(WiFi.gatewayIP());
+      } else {
+        isScanningHosts = false;
+        display.setCursor(0, 20);
+        display.print("IP: ");
+        display.println(WiFi.localIP());
+        display.setCursor(0, 35);
+        display.print("Gateway: ");
+        display.println(WiFi.gatewayIP());
+        display.setCursor(0, 48);
+        display.print("Subnet: ");
+        display.println(WiFi.subnetMask());
+        display.setCursor(0, 60);
+        display.print("[OK] Back");
+      }
     } break;
 
     case DEAUTH_RUN: {

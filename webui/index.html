@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>KFW — ESP32 Pentest Firmware</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+
+  <style>
+    :root {
+      color-scheme: light dark;
+      --md-sys-color-primary: #006874;
+      --md-sys-color-on-primary: #ffffff;
+      --md-sys-color-primary-container: #97f0ff;
+      --md-sys-color-on-primary-container: #001f24;
+      --md-sys-color-secondary: #4a6267;
+      --md-sys-color-on-secondary: #ffffff;
+      --md-sys-color-surface: #fafdfd;
+      --md-sys-color-on-surface: #191c1d;
+      --md-sys-color-surface-variant: #dbe4e6;
+      --md-sys-color-on-surface-variant: #3f484a;
+      --md-sys-color-outline: #6f797a;
+      --md-sys-color-outline-variant: #bfc8ca;
+      --md-sys-color-background: #fafdfd;
+      --md-sys-color-on-background: #191c1d;
+      --md-sys-color-surface-container-low: #f4f7f8;
+      --card-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --md-sys-color-primary: #4fd8eb;
+        --md-sys-color-on-primary: #00363d;
+        --md-sys-color-primary-container: #004f57;
+        --md-sys-color-on-primary-container: #97f0ff;
+        --md-sys-color-surface: #191c1d;
+        --md-sys-color-on-surface: #e1e3e3;
+        --md-sys-color-surface-variant: #3f484a;
+        --md-sys-color-on-surface-variant: #bfc8ca;
+        --md-sys-color-outline: #899294;
+        --md-sys-color-outline-variant: #3f484a;
+        --md-sys-color-background: #191c1d;
+        --md-sys-color-on-background: #e1e3e3;
+        --md-sys-color-surface-container-low: #1d2021;
+        --card-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.2);
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--md-sys-color-background);
+      color: var(--md-sys-color-on-background);
+      min-height: 100vh;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    header {
+      position: sticky; top: 0; z-index: 100;
+      background: color-mix(in srgb, var(--md-sys-color-surface-variant) 92%, transparent);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--md-sys-color-outline-variant);
+      padding: 0 24px; height: 64px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .header-logo {
+      font-family: 'Space Mono', monospace;
+      font-size: 1.2rem; font-weight: 700;
+      color: var(--md-sys-color-primary);
+      text-decoration: none;
+    }
+    .header-logo span { color: var(--md-sys-color-on-surface-variant); font-weight: 400; }
+
+    nav { display: flex; align-items: center; gap: 4px; }
+    nav a {
+      text-decoration: none; color: var(--md-sys-color-on-surface-variant);
+      font-size: 0.9rem; font-weight: 500;
+      padding: 8px 16px; border-radius: 50px;
+      transition: background 0.2s, color 0.2s;
+    }
+    nav a:hover { background: var(--md-sys-color-surface-variant); color: var(--md-sys-color-on-surface); }
+
+    .hero {
+      max-width: 900px; margin: 0 auto;
+      padding: 88px 24px 72px; text-align: center;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+      font-size: 0.78rem; font-weight: 700;
+      font-family: 'Space Mono', monospace;
+      padding: 6px 16px; border-radius: 50px;
+      margin-bottom: 28px; letter-spacing: 1px;
+    }
+    .hero-badge::before {
+      content: ''; width: 7px; height: 7px;
+      border-radius: 50%; background: var(--md-sys-color-primary);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.75); }
+    }
+
+    h1 {
+      font-family: 'Space Mono', monospace;
+      font-size: clamp(3.2rem, 9vw, 5.5rem);
+      font-weight: 700; color: var(--md-sys-color-on-background);
+      line-height: 1.05; letter-spacing: -3px; margin-bottom: 20px;
+    }
+    h1 .accent { color: var(--md-sys-color-primary); }
+
+    .hero-sub {
+      font-size: clamp(1rem, 2.5vw, 1.15rem);
+      color: var(--md-sys-color-on-surface-variant);
+      max-width: 520px; margin: 0 auto 44px; font-weight: 400;
+    }
+
+    .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+    .btn-filled {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+      padding: 13px 28px; border-radius: 50px;
+      font-size: 0.95rem; font-weight: 600;
+      text-decoration: none; border: none; cursor: pointer;
+      transition: filter 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 2px 8px color-mix(in srgb, var(--md-sys-color-primary) 35%, transparent);
+    }
+    .btn-filled:hover {
+      filter: brightness(1.1); transform: translateY(-2px);
+      box-shadow: 0 6px 20px color-mix(in srgb, var(--md-sys-color-primary) 40%, transparent);
+    }
+
+    .btn-outlined {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: transparent; color: var(--md-sys-color-primary);
+      padding: 12px 28px; border-radius: 50px;
+      font-size: 0.95rem; font-weight: 600;
+      text-decoration: none; border: 1.5px solid var(--md-sys-color-outline);
+      cursor: pointer; transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    }
+    .btn-outlined:hover {
+      background: var(--md-sys-color-surface-variant);
+      border-color: var(--md-sys-color-primary); transform: translateY(-2px);
+    }
+
+    .install-section {
+      max-width: 660px; margin: 0 auto 80px; padding: 0 24px;
+      animation: fadeUp 0.6s 0.1s ease both;
+    }
+
+    .install-card {
+      background: var(--md-sys-color-surface-container-low);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: 28px; padding: 40px 36px; text-align: center;
+    }
+
+    .install-card h2 {
+      font-size: 1.5rem; font-weight: 700;
+      margin-bottom: 8px; color: var(--md-sys-color-on-surface);
+    }
+    .install-card .sub {
+      color: var(--md-sys-color-on-surface-variant);
+      font-size: 0.92rem; margin-bottom: 32px;
+    }
+
+    /* BOARD SELECTOR */
+    .board-selector {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px; margin-bottom: 28px;
+    }
+
+    .board-option {
+      position: relative;
+    }
+
+    .board-option input {
+      position: absolute; opacity: 0; width: 0; height: 0;
+    }
+
+    .board-option label {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 8px;
+      padding: 20px 16px;
+      background: var(--md-sys-color-surface);
+      border: 2px solid var(--md-sys-color-outline-variant);
+      border-radius: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .board-option label:hover {
+      border-color: var(--md-sys-color-primary);
+      background: var(--md-sys-color-surface-container-low);
+    }
+
+    .board-option input:checked + label {
+      border-color: var(--md-sys-color-primary);
+      background: var(--md-sys-color-primary-container);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent);
+    }
+
+    .board-icon {
+      font-size: 2rem;
+      line-height: 1;
+    }
+
+    .board-name {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.85rem; font-weight: 700;
+      color: var(--md-sys-color-on-surface);
+      text-align: center;
+    }
+
+    .board-desc {
+      font-size: 0.75rem;
+      color: var(--md-sys-color-on-surface-variant);
+      text-align: center;
+    }
+
+    .install-btn-wrapper {
+      display: flex; justify-content: center; margin-bottom: 20px;
+    }
+
+    .install-note {
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px; font-size: 0.82rem;
+      color: var(--md-sys-color-on-surface-variant);
+    }
+
+    .section-wrap {
+      max-width: 900px; margin: 0 auto 80px; padding: 0 24px;
+    }
+
+    .section-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.72rem; font-weight: 700;
+      color: var(--md-sys-color-primary);
+      letter-spacing: 2.5px; text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .section-title {
+      font-size: clamp(1.7rem, 4vw, 2.4rem);
+      font-weight: 700; color: var(--md-sys-color-on-background);
+      margin-bottom: 36px; line-height: 1.2;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(255px, 1fr));
+      gap: 14px;
+    }
+
+    .feature-card {
+      background: var(--md-sys-color-surface-container-low);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: 20px; padding: 28px;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+      animation: fadeUp 0.5s ease both;
+    }
+    .feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--card-shadow);
+      border-color: color-mix(in srgb, var(--md-sys-color-primary) 50%, transparent);
+    }
+
+    .feature-icon {
+      width: 48px; height: 48px;
+      background: var(--md-sys-color-primary-container);
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 16px; font-size: 1.4rem;
+    }
+
+    .feature-card h3 {
+      font-size: 0.95rem; font-weight: 700;
+      margin-bottom: 8px; color: var(--md-sys-color-on-surface);
+      font-family: 'Space Mono', monospace; letter-spacing: -0.3px;
+    }
+    .feature-card p {
+      font-size: 0.87rem; color: var(--md-sys-color-on-surface-variant);
+      line-height: 1.6;
+    }
+
+    .specs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .spec-chip {
+      background: var(--md-sys-color-surface-container);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: 16px; padding: 20px;
+    }
+
+    .spec-key {
+      display: block;
+      font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant);
+      font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.8px; margin-bottom: 6px;
+    }
+    .spec-val {
+      display: block;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.92rem; font-weight: 700;
+      color: var(--md-sys-color-primary);
+    }
+
+    .steps { display: flex; flex-direction: column; gap: 12px; }
+
+    .step {
+      display: flex; gap: 20px; align-items: flex-start;
+      background: var(--md-sys-color-surface-container-low);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: 20px; padding: 24px;
+    }
+
+    .step-num {
+      min-width: 40px; height: 40px;
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Space Mono', monospace;
+      font-weight: 700; font-size: 0.85rem;
+    }
+
+    .step-content h4 {
+      font-size: 1rem; font-weight: 600;
+      margin-bottom: 6px; color: var(--md-sys-color-on-surface);
+    }
+    .step-content p {
+      font-size: 0.88rem; color: var(--md-sys-color-on-surface-variant);
+      line-height: 1.65;
+    }
+    .step-content a { color: var(--md-sys-color-primary); text-decoration: none; }
+    .step-content a:hover { text-decoration: underline; }
+
+    esp-web-install-button { color-scheme: light; }
+
+    code {
+      font-family: 'Space Mono', monospace;
+      background: var(--md-sys-color-surface-variant);
+      color: var(--md-sys-color-primary);
+      padding: 2px 7px; border-radius: 6px; font-size: 0.84em;
+    }
+
+    footer {
+      border-top: 1px solid var(--md-sys-color-outline-variant);
+      padding: 40px 24px; text-align: center;
+    }
+
+    .footer-inner {
+      max-width: 900px; margin: 0 auto;
+      display: flex; flex-direction: column; gap: 8px;
+      align-items: center;
+      color: var(--md-sys-color-on-surface-variant);
+      font-size: 0.88rem;
+    }
+    .footer-inner a { color: var(--md-sys-color-primary); text-decoration: none; }
+    .footer-inner a:hover { text-decoration: underline; }
+    .footer-inner .dim { opacity: 0.55; font-size: 0.8rem; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 600px) {
+      nav { display: none; }
+      .install-card { padding: 28px 20px; }
+      .step { flex-direction: column; gap: 12px; }
+      h1 { letter-spacing: -2px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <a class="header-logo" href="#"><span>//</span> KFW</a>
+    <nav>
+      <a href="#install">Install</a>
+      <a href="#features">Features</a>
+      <a href="#guide">Guide</a>
+      <a href="https://github.com/labubuahhginger/kfwflasher.github.io" target="_blank">GitHub ↗</a>
+    </nav>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-badge">ESP32 · PENTEST FIRMWARE</div>
+    <h1>K<span class="accent">F</span>W</h1>
+    <p class="hero-sub">
+      Open-source penetration testing firmware for Espressif ESP32.
+      Wi-Fi attacks, BLE scanning, IR capture, RFID cloning — all in one device.
+    </p>
+    <div class="hero-actions">
+      <a href="#install" class="btn-filled">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Flash Now
+      </a>
+      <a href="https://github.com/labubuahhginger/kfw-esp32" target="_blank" class="btn-outlined">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        View Source
+      </a>
+    </div>
+  </section>
+
+  <!-- INSTALL -->
+  <section class="install-section" id="install">
+    <div class="install-card">
+      <h2>One-click Flash</h2>
+      <p class="sub">Select your board, connect via USB, and follow the prompts.<br/>Works in Chrome and Edge — no drivers needed.</p>
+      
+      <!-- BOARD SELECTOR -->
+      <div class="board-selector">
+        <div class="board-option">
+          <input type="radio" name="board" id="board-esp32" value="esp32dev" checked>
+          <label for="board-esp32">
+            <span class="board-icon">📟</span>
+            <span class="board-name">ESP32</span>
+            <span class="board-desc">Original ESP32 DevKit</span>
+          </label>
+        </div>
+        <div class="board-option">
+          <input type="radio" name="board" id="board-esp32s3" value="esp32s3">
+          <label for="board-esp32s3">
+            <span class="board-icon">🚀</span>
+            <span class="board-name">ESP32-S3</span>
+            <span class="board-desc">With USB & RFID support</span>
+          </label>
+        </div>
+        <div class="board-option">
+          <input type="radio" name="board" id="board-esp32c3" value="esp32c3">
+          <label for="board-esp32c3">
+            <span class="board-icon">⚡</span>
+            <span class="board-name">ESP32-C3</span>
+            <span class="board-desc">RISC-V, no RFID</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="install-btn-wrapper">
+        <esp-web-install-button id="install-button">
+          <button slot="activate" class="btn-filled">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            Connect &amp; Flash
+          </button>
+        </esp-web-install-button>
+      </div>
+      <div class="install-note">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Requires Chrome or Edge with Web Serial API support
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="section-wrap" id="features">
+    <p class="section-label">Capabilities</p>
+    <h2 class="section-title">What KFW can do</h2>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">📡</div>
+        <h3>Wi-Fi</h3>
+        <p>Deauth attacks, beacon flood, probe and beacon sniffer and passive packet capture on 2.4 GHz networks.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔵</div>
+        <h3>BLE</h3>
+        <p>Bluetooth Low Energy scanner and advertiser. Only Applejuice exploit is available right now.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔴</div>
+        <h3>IR</h3>
+        <p>Infrared signal capture and replay. Record any IR remote and retransmit at will — TVs, ACs, projectors.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💳</div>
+        <h3>RFID</h3>
+        <p>Read and emulate low-frequency RFID cards. Supports common 125 kHz protocols used in access control systems.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📁</div>
+        <h3>Files</h3>
+        <p>Onboard LittleFS filesystem for storing captured data, scripts, and config — all persisted across reboots.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SPECS -->
+  <section class="section-wrap">
+    <p class="section-label">Hardware</p>
+    <h2 class="section-title">Target platform</h2>
+    <div class="specs-grid">
+      <div class="spec-chip"><span class="spec-key">Board</span><span class="spec-val">ESP32 / S3 / C3</span></div>
+      <div class="spec-chip"><span class="spec-key">Chip</span><span class="spec-val">Espressif ESP32</span></div>
+      <div class="spec-chip"><span class="spec-key">Framework</span><span class="spec-val">Arduino</span></div>
+      <div class="spec-chip"><span class="spec-key">Flash tool</span><span class="spec-val">Web Serial</span></div>
+      <div class="spec-chip"><span class="spec-key">Filesystem</span><span class="spec-val">LittleFS</span></div>
+      <div class="spec-chip"><span class="spec-key">License</span><span class="spec-val">Open Source</span></div>
+    </div>
+  </section>
+
+  <!-- GUIDE -->
+  <section class="section-wrap" id="guide">
+    <p class="section-label">Getting Started</p>
+    <h2 class="section-title">Manual installation</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-content">
+          <h4>Download firmware</h4>
+          <p>Grab the latest <code>firmware.bin</code> from the <a href="https://github.com/labubuahhginger/kfw-esp32/releases" target="_blank">Releases</a> page on GitHub.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-content">
+          <h4>Install esptool</h4>
+          <p>Run <code>pip install esptool</code> to get the official Espressif flashing utility.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-content">
+          <h4>Flash the board</h4>
+          <p>Connect ESP32 via USB, then run:<br/>
+          <code>esptool.py --port COM3 write_flash 0x0 firmware.bin</code><br/>
+          Replace <code>COM3</code> with your port (<code>/dev/ttyUSB0</code> on Linux/macOS).</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-content">
+          <h4>Connect &amp; explore</h4>
+          <p>After reboot, connect to the KFW access point or open the serial monitor at <code>115200</code> baud to get started.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-inner">
+      <p>
+        <strong>KFW</strong> — ESP32 Pentest Firmware &nbsp;·&nbsp;
+        <a href="https://github.com/labubuahhginger/kfw-esp32" target="_blank">GitHub</a>
+        &nbsp;·&nbsp;
+        <a href="https://github.com/labubuahhginger/kfw-esp32/issues" target="_blank">Issues</a>
+      </p>
+      <p class="dim">For educational and authorized security testing purposes only.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Update install-button manifest based on selected board
+    document.querySelectorAll('input[name="board"]').forEach(radio => {
+      radio.addEventListener('change', function() {
+        const board = this.value;
+        const installButton = document.getElementById('install-button');
+        installButton.manifest = `manifest.json?board=${board}`;
+      });
+    });
+
+    // Initialize with default board
+    document.addEventListener('DOMContentLoaded', function() {
+      const defaultBoard = document.querySelector('input[name="board"]:checked').value;
+      const installButton = document.getElementById('install-button');
+      installButton.manifest = `manifest.json?board=${defaultBoard}`;
+    });
+  </script>
+
+</body>
+</html>

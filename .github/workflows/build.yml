@@ -140,3 +140,53 @@ jobs:
           files: release/*.bin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Публикация на GitHub Pages (kfwflasher.github.io)
+  deploy-pages:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download all firmware artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: firmware-*
+          path: firmware
+          merge-multiple: true
+
+      - name: Checkout kfwflasher.github.io
+        uses: actions/checkout@v4
+        with:
+          repository: labubuahhginger/kfwflasher.github.io
+          token: ${{ secrets.PAGES_DEPLOY_TOKEN }}
+          path: gh-pages
+
+      - name: Copy firmware and webui
+        run: |
+          # Создаем директорию для прошивок
+          mkdir -p gh-pages/firmware
+          
+          # Копируем последние версии прошивок
+          cp firmware/firmware-kfw-esp32dev-*.bin gh-pages/firmware/firmware-esp32dev.bin
+          cp firmware/firmware-kfw-esp32s3-*.bin gh-pages/firmware/firmware-esp32s3.bin
+          cp firmware/firmware-kfw-esp32c3-*.bin gh-pages/firmware/firmware-esp32c3.bin
+          
+          # Копируем webui файлы
+          cp webui/index.html gh-pages/index.html
+          cp webui/manifest.json gh-pages/manifest.json
+
+      - name: Commit and push to kfwflasher.github.io
+        run: |
+          cd gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git diff --quiet && git diff --staged --quiet || git commit -m "Update firmware and webui [skip ci]
+
+          Auto-deploy from commit: ${{ github.sha }}
+          Build triggered by: ${{ github.actor }}"
+          git push
