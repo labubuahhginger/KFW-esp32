@@ -1,0 +1,17 @@
+{
+  "name": "KFW - ESP32",
+  "version": "latest",
+  "homeassistant": {},
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32",
+      "parts": [
+        {
+          "path": "firmware/firmware-esp32dev.bin",
+          "offset": 0
+        }
+      ]
+    }
+  ]
+}

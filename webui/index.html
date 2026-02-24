@@ -352,7 +352,37 @@
     .step-content a { color: var(--md-sys-color-primary); text-decoration: none; }
     .step-content a:hover { text-decoration: underline; }
 
-    esp-web-install-button { color-scheme: light; }
+    /* ESP Web Tools styles override */
+    esp-web-install-button {
+      --ew-color-primary: var(--md-sys-color-primary);
+      --ew-color-on-primary: var(--md-sys-color-on-primary);
+      --ew-color-surface: var(--md-sys-color-surface);
+      --ew-color-on-surface: var(--md-sys-color-on-surface);
+      --ew-color-background: var(--md-sys-color-background);
+      --ew-color-on-background: var(--md-sys-color-on-background);
+      --ew-font-family: 'Outfit', sans-serif;
+      display: block;
+      width: 100%;
+      max-width: 320px;
+      margin: 0 auto;
+    }
+    
+    esp-web-install-button::part(button) {
+      background: var(--md-sys-color-primary) !important;
+      color: var(--md-sys-color-on-primary) !important;
+      font-family: 'Outfit', sans-serif !important;
+      font-weight: 600 !important;
+      border-radius: 50px !important;
+      padding: 13px 28px !important;
+      border: none !important;
+      cursor: pointer !important;
+      transition: filter 0.2s, transform 0.15s !important;
+    }
+    
+    esp-web-install-button::part(button):hover {
+      filter: brightness(1.1) !important;
+      transform: translateY(-2px) !important;
+    }
 
     code {
       font-family: 'Space Mono', monospace;
@@ -457,7 +487,7 @@
       </div>
 
       <div class="install-btn-wrapper">
-        <esp-web-install-button id="install-button">
+        <esp-web-install-button id="install-button" manifest="manifest.json">
           <button slot="activate" class="btn-filled">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
             Connect &amp; Flash
@@ -574,7 +604,8 @@
       radio.addEventListener('change', function() {
         const board = this.value;
         const installButton = document.getElementById('install-button');
-        installButton.manifest = `manifest.json?board=${board}`;
+        // Меняем manifest в зависимости от платы
+        installButton.setAttribute('manifest', `manifest-${board}.json`);
       });
     });
 
@@ -582,7 +613,7 @@
     document.addEventListener('DOMContentLoaded', function() {
       const defaultBoard = document.querySelector('input[name="board"]:checked').value;
       const installButton = document.getElementById('install-button');
-      installButton.manifest = `manifest.json?board=${defaultBoard}`;
+      installButton.setAttribute('manifest', `manifest-${defaultBoard}.json`);
     });
   </script>
 

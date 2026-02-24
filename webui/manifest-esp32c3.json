@@ -1,0 +1,17 @@
+{
+  "name": "KFW - ESP32-C3",
+  "version": "latest",
+  "homeassistant": {},
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-C3",
+      "parts": [
+        {
+          "path": "firmware/firmware-esp32c3.bin",
+          "offset": 0
+        }
+      ]
+    }
+  ]
+}

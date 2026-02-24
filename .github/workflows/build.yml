@@ -177,7 +177,7 @@ jobs:
           
           # Копируем webui файлы
           cp webui/index.html gh-pages/index.html
-          cp webui/manifest.json gh-pages/manifest.json
+          cp webui/manifest-*.json gh-pages/
 
       - name: Commit and push to kfwflasher.github.io
         run: |
