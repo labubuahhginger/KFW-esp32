@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+  <script type="module" src="https://unpkg.com/esp-web-tools@8/dist/web/install-button.js?module"></script>
 
   <style>
     :root {
@@ -352,90 +352,37 @@
     .step-content a { color: var(--md-sys-color-primary); text-decoration: none; }
     .step-content a:hover { text-decoration: underline; }
 
-    /* ESP Web Tools styles override */
+    /* ESP Web Tools v8 styles override */
     esp-web-install-button {
-      --ew-color-primary: var(--md-sys-color-primary);
-      --ew-color-on-primary: var(--md-sys-color-on-primary);
-      --ew-color-surface: var(--md-sys-color-surface);
-      --ew-color-on-surface: var(--md-sys-color-on-surface);
-      --ew-color-background: var(--md-sys-color-background);
-      --ew-color-on-background: var(--md-sys-color-on-background);
-      --ew-font-family: 'Outfit', sans-serif;
       display: block;
       width: 100%;
       max-width: 320px;
       margin: 0 auto;
+      /* CSS Custom Properties for esp-web-tools v8 */
+      --primary-color: var(--md-sys-color-primary);
+      --on-primary-color: var(--md-sys-color-on-primary);
+      --surface-color: var(--md-sys-color-surface);
+      --on-surface-color: var(--md-sys-color-on-surface);
+      --background-color: var(--md-sys-color-background);
+      --mdc-theme-primary: var(--md-sys-color-primary);
+      --mdc-theme-on-primary: var(--md-sys-color-on-primary);
+      --mdc-theme-surface: var(--md-sys-color-surface);
+      --mdc-theme-on-surface: var(--md-sys-color-on-surface);
+      --mdc-theme-background: var(--md-sys-color-background);
     }
     
-    esp-web-install-button::part(button) {
-      background: var(--md-sys-color-primary) !important;
+    /* Global override for MDC buttons inside esp-web-install-button */
+    esp-web-install-button .mdc-button,
+    esp-web-install-button .mdc-button:not(:disabled),
+    esp-web-install-button .mdc-button--raised,
+    esp-web-install-button .mdc-button--unelevated {
+      background-color: var(--md-sys-color-primary) !important;
       color: var(--md-sys-color-on-primary) !important;
-      font-family: 'Outfit', sans-serif !important;
-      font-weight: 600 !important;
-      border-radius: 50px !important;
-      padding: 13px 28px !important;
-      border: none !important;
-      cursor: pointer !important;
-      transition: filter 0.2s, transform 0.15s !important;
     }
     
-    esp-web-install-button::part(button):hover {
-      filter: brightness(1.1) !important;
-      transform: translateY(-2px) !important;
-    }
-
-    /* Override dialog and internal styles */
-    esp-web-install-button::part(dialog) {
-      background: var(--md-sys-color-surface) !important;
-      color: var(--md-sys-color-on-surface) !important;
+    esp-web-install-button .mdc-button .mdc-button__label {
       font-family: 'Outfit', sans-serif !important;
-      border-radius: 20px !important;
-      border: 1px solid var(--md-sys-color-outline-variant) !important;
-    }
-
-    esp-web-install-button::part(dialog-heading) {
-      font-family: 'Space Mono', monospace !important;
-      font-weight: 700 !important;
-      color: var(--md-sys-color-on-surface) !important;
-    }
-
-    esp-web-install-button::part(dialog-content) {
-      font-family: 'Outfit', sans-serif !important;
-      color: var(--md-sys-color-on-surface-variant) !important;
-    }
-
-    esp-web-install-button::part(dialog-footer) {
-      border-top-color: var(--md-sys-color-outline-variant) !important;
-    }
-
-    esp-web-install-button::part(button-secondary) {
-      background: var(--md-sys-color-surface-variant) !important;
-      color: var(--md-sys-color-on-surface-variant) !important;
-      font-family: 'Outfit', sans-serif !important;
-      border-radius: 50px !important;
-      border: none !important;
-      padding: 10px 20px !important;
       font-weight: 600 !important;
-    }
-
-    esp-web-install-button::part(button-primary) {
-      background: var(--md-sys-color-primary) !important;
-      color: var(--md-sys-color-on-primary) !important;
-      font-family: 'Outfit', sans-serif !important;
-      border-radius: 50px !important;
-      border: none !important;
-      padding: 10px 20px !important;
-      font-weight: 600 !important;
-    }
-
-    esp-web-install-button::part(list) {
-      background: var(--md-sys-color-surface-container-low) !important;
-      border-radius: 12px !important;
-    }
-
-    esp-web-install-button::part(list-item) {
-      color: var(--md-sys-color-on-surface) !important;
-      font-family: 'Outfit', sans-serif !important;
     }
 
     code {
@@ -541,12 +488,7 @@
       </div>
 
       <div class="install-btn-wrapper">
-        <esp-web-install-button id="install-button" manifest="manifest.json">
-          <button slot="activate" class="btn-filled">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-            Connect &amp; Flash
-          </button>
-        </esp-web-install-button>
+        <esp-web-install-button id="install-button" manifest="manifest-esp32dev.json"></esp-web-install-button>
       </div>
       <div class="install-note">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -658,7 +600,6 @@
       radio.addEventListener('change', function() {
         const board = this.value;
         const installButton = document.getElementById('install-button');
-        // Меняем manifest в зависимости от платы
         installButton.setAttribute('manifest', `manifest-${board}.json`);
       });
     });
